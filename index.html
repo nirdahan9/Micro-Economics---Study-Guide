@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>מערכת תרגול - מיקרו כלכלה</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="container">
+    <header class="card">
+      <div class="header-row">
+        <h1>מערכת תרגול שאלות - מיקרו כלכלה</h1>
+        <button id="theme-toggle" class="btn" type="button" aria-label="החלפת מצב תצוגה">🌙 מצב כהה</button>
+      </div>
+      <p id="load-status" class="status">טוען שאלות...</p>
+    </header>
+
+    <section class="card" id="setup-section">
+      <h2>הגדרות תרגול</h2>
+
+      <div class="field">
+        <label for="question-count">מספר שאלות לתרגול (השאר ריק = כל השאלות)</label>
+        <input id="question-count" type="number" min="1" placeholder="לדוגמה: 20" />
+      </div>
+
+      <div class="field">
+        <p class="label">בחירת שיעורים / מצגות (ברירת מחדל: כל המצגות מסומנות)</p>
+        <div id="lecture-filters" class="lecture-grid"></div>
+      </div>
+
+      <div class="actions">
+        <button id="start-quiz" class="btn primary">התחל תרגול</button>
+        <button id="reset-setup" class="btn">איפוס בחירה</button>
+      </div>
+
+      <p id="selection-summary" class="muted"></p>
+    </section>
+
+    <section class="card hidden" id="quiz-section">
+      <div class="quiz-head">
+        <h2>תרגול</h2>
+        <p id="progress"></p>
+      </div>
+
+      <div id="question-meta" class="meta"></div>
+      <h3 id="question-text" class="question"></h3>
+
+      <form id="answers-form" class="choices"></form>
+
+      <div class="actions">
+        <button id="submit-answer" class="btn primary" type="button">בדיקת תשובה</button>
+        <button id="next-question" class="btn hidden" type="button">לשאלה הבאה</button>
+      </div>
+
+      <div id="feedback" class="feedback hidden"></div>
+    </section>
+
+    <section class="card hidden" id="result-section">
+      <h2>סיכום תרגול</h2>
+      <p id="result-score"></p>
+      <p id="result-details" class="muted"></p>
+      <div class="actions">
+        <button id="restart-quiz" class="btn primary">תרגול נוסף</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <details>
+        <summary>מאגר השאלות באתר</summary>
+        <p class="muted" id="bank-summary"></p>
+        <div id="question-bank" class="question-bank"></div>
+      </details>
+    </section>
+  </main>
+
+  <script src="questions-data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
