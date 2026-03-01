@@ -623,10 +623,37 @@ async function loadQuestionsText() {
     return window.QUESTIONS_TEXT;
   }
 
-  const response = await fetch('questions.txt');
-  const text = await response.text();
-  if (typeof text === 'string' && text.trim()) {
-    return text;
+  const scriptCandidates = ['questions-data.js', new URL('questions-data.js', window.location.href).toString()];
+  for (const src of scriptCandidates) {
+    try {
+      await new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = src;
+        script.async = true;
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error(`script load failed: ${src}`));
+        document.head.appendChild(script);
+      });
+
+      if (typeof window.QUESTIONS_TEXT === 'string' && window.QUESTIONS_TEXT.trim()) {
+        return window.QUESTIONS_TEXT;
+      }
+    } catch {
+      // continue to next fallback
+    }
+  }
+
+  const textCandidates = ['questions.txt', new URL('questions.txt', window.location.href).toString()];
+  for (const src of textCandidates) {
+    try {
+      const response = await fetch(src, { cache: 'no-store' });
+      const text = await response.text();
+      if (typeof text === 'string' && text.trim()) {
+        return text;
+      }
+    } catch {
+      // continue to next fallback
+    }
   }
 
   throw new Error('Questions source is empty');
