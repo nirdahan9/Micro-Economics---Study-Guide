@@ -18,7 +18,6 @@ const el = {
   loadStatus: document.getElementById('load-status'),
   lectureFilters: document.getElementById('lecture-filters'),
   questionCount: document.getElementById('question-count'),
-  gameMode: document.getElementById('game-mode'),
   timerMinutes: document.getElementById('timer-minutes'),
   timerField: document.getElementById('timer-field'),
   startQuiz: document.getElementById('start-quiz'),
@@ -268,10 +267,8 @@ function getModeLabel(mode) {
 }
 
 function updateModeUi() {
-  const mode = el.gameMode?.value || 'marathon';
-  state.mode = mode;
   if (el.timerField) {
-    el.timerField.classList.toggle('hidden', mode !== 'timer');
+    el.timerField.classList.toggle('hidden', state.mode !== 'timer');
   }
   renderLeaderboard();
   buildSelection();
@@ -319,7 +316,7 @@ function updateLivesStatus() {
 function renderLeaderboard() {
   if (!el.leaderboardList || !el.leaderboardTitle) return;
 
-  const mode = state.mode || el.gameMode?.value || 'marathon';
+  const mode = state.mode || 'marathon';
   el.leaderboardTitle.textContent = `תוצאות מובילות - מצב ${getModeLabel(mode)}`;
 
   if (!['marathon', 'timer', 'lives'].includes(mode)) {
@@ -374,7 +371,6 @@ function saveLeaderboardEntry(reason = '') {
 }
 
 function buildSelection() {
-  state.mode = el.gameMode?.value || 'marathon';
   const selectedLectures = getSelectedLectureIds();
   let filtered = state.allQuestions.filter((q) => selectedLectures.includes(q.lectureId));
 
@@ -571,7 +567,6 @@ function startQuiz() {
 function resetSetup() {
   el.questionCount.value = '';
   if (el.timerMinutes) el.timerMinutes.value = '5';
-  if (el.gameMode) el.gameMode.value = 'marathon';
   [...el.lectureFilters.querySelectorAll('input[type="checkbox"]')].forEach((c) => {
     c.checked = true;
   });
@@ -614,9 +609,7 @@ async function init() {
   loadLeaderboard();
 
   const modeFromQuery = getModeFromQuery();
-  if (modeFromQuery && el.gameMode) {
-    el.gameMode.value = modeFromQuery;
-  }
+  state.mode = modeFromQuery || 'marathon';
 
   try {
     const text = await loadQuestionsText();
@@ -656,7 +649,6 @@ async function init() {
 
   el.questionCount.addEventListener('input', buildSelection);
   el.lectureFilters.addEventListener('change', buildSelection);
-  el.gameMode?.addEventListener('change', updateModeUi);
   el.timerMinutes?.addEventListener('input', buildSelection);
 }
 
