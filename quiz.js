@@ -16,6 +16,8 @@ const state = {
   weakProfile: 'global',
   weakStats: {},
   wrongStats: {},
+  displayedChoices: {},
+  currentCorrectLabel: '',
   suddenDeathFailed: false,
   confidenceStats: {
     high: { total: 0, correct: 0 },
@@ -466,19 +468,32 @@ function renderCurrentQuestion() {
   el.questionText.textContent = q.text;
 
   el.answersForm.innerHTML = '';
-  const choiceOrder = shuffle(['A', 'B', 'C', 'D']);
-  choiceOrder.forEach((key) => {
-    if (!q.choices[key]) return;
+  state.displayedChoices = {};
+  state.currentCorrectLabel = '';
+
+  const sourceChoiceKeys = Object.keys(q.choices).filter((key) => ['A', 'B', 'C', 'D'].includes(key));
+  const shuffledChoiceKeys = shuffle(sourceChoiceKeys);
+  const fixedLabels = ['A', 'B', 'C', 'D'];
+
+  shuffledChoiceKeys.forEach((sourceKey, index) => {
+    const displayLabel = fixedLabels[index];
+    const choiceText = q.choices[sourceKey];
+
+    state.displayedChoices[displayLabel] = choiceText;
+    if (sourceKey === q.correct) {
+      state.currentCorrectLabel = displayLabel;
+    }
+
     const label = document.createElement('label');
     label.className = 'choice';
 
     const radio = document.createElement('input');
     radio.type = 'radio';
     radio.name = 'answer';
-    radio.value = key;
+    radio.value = displayLabel;
 
     const span = document.createElement('span');
-    span.textContent = `${key}. ${q.choices[key]}`;
+    span.textContent = `${displayLabel}. ${choiceText}`;
 
     label.appendChild(radio);
     label.appendChild(span);
@@ -506,7 +521,7 @@ function submitCurrentAnswer() {
   }
 
   const userAnswer = checked.value;
-  const isCorrect = userAnswer === q.correct;
+  const isCorrect = userAnswer === state.currentCorrectLabel;
   state.answeredCount += 1;
 
   if (state.mode === 'confidence' && confidenceChecked) {
@@ -540,7 +555,7 @@ function submitCurrentAnswer() {
     }
 
     el.feedback.className = 'feedback bad';
-    el.feedback.innerHTML = `<strong>לא נכון.</strong><br>התשובה הנכונה היא: ${q.correct}. ${q.choices[q.correct] || ''}<br><br>הסבר: ${q.explanation}`;
+    el.feedback.innerHTML = `<strong>לא נכון.</strong><br>התשובה הנכונה היא: ${state.currentCorrectLabel}. ${state.displayedChoices[state.currentCorrectLabel] || ''}<br><br>הסבר: ${q.explanation}`;
   }
 
   state.answered = true;
