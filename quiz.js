@@ -15,6 +15,13 @@ const state = {
   quizStartedAt: 0,
   weakProfile: 'global',
   weakStats: {},
+  wrongStats: {},
+  suddenDeathFailed: false,
+  confidenceStats: {
+    high: { total: 0, correct: 0 },
+    medium: { total: 0, correct: 0 },
+    low: { total: 0, correct: 0 },
+  },
 };
 
 const el = {
@@ -45,6 +52,8 @@ const el = {
   nextQuestion: document.getElementById('next-question'),
   finishQuiz: document.getElementById('finish-quiz'),
   feedback: document.getElementById('feedback'),
+  confidenceField: document.getElementById('confidence-field'),
+  confidenceOptions: document.getElementById('confidence-options'),
 
   resultScore: document.getElementById('result-score'),
   resultDetails: document.getElementById('result-details'),
@@ -57,12 +66,16 @@ const el = {
 
 const THEME_KEY = 'micro-study-theme';
 const WEAK_STATS_KEY = 'micro-study-weak-stats-v1';
+const WRONG_STATS_KEY = 'micro-study-wrong-stats-v1';
 
 const MODE_LABELS = {
   freestyle: 'Freestyle',
   marathon: 'מרתון',
   timer: 'טיימר',
   lives: 'חיים',
+  'sudden-death': 'Sudden Death',
+  'review-wrong': 'Review Wrong Answers',
+  confidence: 'Confidence Mode',
   'weak-first': 'חלשים קודם',
 };
 
@@ -267,6 +280,19 @@ function saveWeakStats() {
   localStorage.setItem(key, JSON.stringify(state.weakStats));
 }
 
+function loadWrongStats() {
+  try {
+    const raw = localStorage.getItem(WRONG_STATS_KEY);
+    state.wrongStats = raw ? JSON.parse(raw) : {};
+  } catch {
+    state.wrongStats = {};
+  }
+}
+
+function saveWrongStats() {
+  localStorage.setItem(WRONG_STATS_KEY, JSON.stringify(state.wrongStats));
+}
+
 function getModeLabel(mode) {
   return MODE_LABELS[mode] || mode;
 }
@@ -298,6 +324,10 @@ function updateModeUi() {
 
   if (el.weakUsername && state.mode === 'weak-first') {
     el.weakUsername.closest('.field')?.classList.remove('hidden');
+  }
+
+  if (el.confidenceField) {
+    el.confidenceField.classList.toggle('hidden', state.mode !== 'confidence');
   }
 
   buildSelection();
@@ -357,6 +387,16 @@ function buildSelection() {
     filtered = shuffle(filtered);
   }
 
+  if (state.mode === 'review-wrong') {
+    filtered = filtered.filter((q) => Number(state.wrongStats[q.uniqueId] || 0) > 0);
+    filtered = [...filtered].sort((a, b) => {
+      const aw = Number(state.wrongStats[a.uniqueId] || 0);
+      const bw = Number(state.wrongStats[b.uniqueId] || 0);
+      if (bw !== aw) return bw - aw;
+      return Math.random() - 0.5;
+    });
+  }
+
   const countInput = el.questionCount.value.trim();
   const requestedCount = countInput ? Number(countInput) : null;
 
@@ -370,7 +410,11 @@ function buildSelection() {
     ? `מצגת ${selectedLectures.map((id) => Number(id)).join(', ')}`
     : 'לא נבחרו מצגות';
 
-  el.selectionSummary.textContent = `ייבחרו ${selected.length} שאלות מתוך ${filtered.length} שאלות תואמות. שיעורים: ${lectureText}`;
+  if (state.mode === 'review-wrong') {
+    el.selectionSummary.textContent = `ייבחרו ${selected.length} שאלות מתוך ${filtered.length} שאלות שסומנו כשגויות בעבר. שיעורים: ${lectureText}`;
+  } else {
+    el.selectionSummary.textContent = `ייבחרו ${selected.length} שאלות מתוך ${filtered.length} שאלות תואמות. שיעורים: ${lectureText}`;
+  }
 
   return selected;
 }
@@ -384,6 +428,12 @@ function renderCurrentQuestion() {
   el.feedback.innerHTML = '';
   el.submitAnswer.disabled = false;
   el.nextQuestion.classList.add('hidden');
+
+  if (state.mode === 'confidence' && el.confidenceOptions) {
+    [...el.confidenceOptions.querySelectorAll('input[name="confidence-level"]')].forEach((option) => {
+      option.checked = false;
+    });
+  }
 
   if (state.mode === 'freestyle' && state.freestyleUnlimited) {
     el.progress.textContent = `שאלה ${state.currentIndex + 1} (Freestyle פתוח)`;
@@ -441,6 +491,7 @@ function submitCurrentAnswer() {
 
   const q = state.selectedQuestions[state.currentIndex];
   const checked = el.answersForm.querySelector('input[name="answer"]:checked');
+  const confidenceChecked = el.confidenceOptions?.querySelector('input[name="confidence-level"]:checked');
 
   if (!checked) {
     el.feedback.className = 'feedback bad';
@@ -448,9 +499,25 @@ function submitCurrentAnswer() {
     return;
   }
 
+  if (state.mode === 'confidence' && !confidenceChecked) {
+    el.feedback.className = 'feedback bad';
+    el.feedback.innerHTML = '<strong>לא נבחרה רמת ביטחון.</strong> יש לבחור גבוה / בינוני / נמוך לפני בדיקת תשובה.';
+    return;
+  }
+
   const userAnswer = checked.value;
   const isCorrect = userAnswer === q.correct;
   state.answeredCount += 1;
+
+  if (state.mode === 'confidence' && confidenceChecked) {
+    const level = confidenceChecked.value;
+    if (state.confidenceStats[level]) {
+      state.confidenceStats[level].total += 1;
+      if (isCorrect) {
+        state.confidenceStats[level].correct += 1;
+      }
+    }
+  }
 
   if (isCorrect) {
     state.score += 1;
@@ -460,9 +527,16 @@ function submitCurrentAnswer() {
     state.weakStats[q.uniqueId] = Number(state.weakStats[q.uniqueId] || 0) + 1;
     saveWeakStats();
 
+    state.wrongStats[q.uniqueId] = Number(state.wrongStats[q.uniqueId] || 0) + 1;
+    saveWrongStats();
+
     if (state.mode === 'lives') {
       state.lives -= 1;
       updateLivesStatus();
+    }
+
+    if (state.mode === 'sudden-death') {
+      state.suddenDeathFailed = true;
     }
 
     el.feedback.className = 'feedback bad';
@@ -471,7 +545,7 @@ function submitCurrentAnswer() {
 
   state.answered = true;
   el.submitAnswer.disabled = true;
-  if (state.mode === 'lives' && state.lives <= 0) {
+  if ((state.mode === 'lives' && state.lives <= 0) || (state.mode === 'sudden-death' && state.suddenDeathFailed)) {
     el.nextQuestion.textContent = 'לסיכום';
   } else {
     el.nextQuestion.textContent = 'לשאלה הבאה';
@@ -493,6 +567,25 @@ function showResults(reason = '') {
   const details = [`משך: ${formatDuration(durationSec)}`];
   if (reason) details.push(reason);
   if (state.mode === 'lives') details.push(`חיים שנותרו: ${Math.max(0, state.lives)}`);
+
+  if (state.mode === 'confidence') {
+    const labels = { high: 'גבוה', medium: 'בינוני', low: 'נמוך' };
+    const confidenceSummary = ['high', 'medium', 'low']
+      .map((key) => {
+        const totalByLevel = state.confidenceStats[key].total;
+        if (!totalByLevel) return null;
+        const correctByLevel = state.confidenceStats[key].correct;
+        const pct = Math.round((correctByLevel / totalByLevel) * 100);
+        return `${labels[key]}: ${correctByLevel}/${totalByLevel} (${pct}%)`;
+      })
+      .filter(Boolean)
+      .join(' | ');
+
+    if (confidenceSummary) {
+      details.push(`דיוק לפי ביטחון: ${confidenceSummary}`);
+    }
+  }
+
   el.resultDetails.textContent = `${details.join(' | ')}. ניתן להתחיל תרגול נוסף עם בחירה חדשה של מספר שאלות ושיעורים.`;
 
 }
@@ -500,6 +593,11 @@ function showResults(reason = '') {
 function moveNext() {
   if (state.mode === 'lives' && state.lives <= 0) {
     showResults('נגמרו החיים.');
+    return;
+  }
+
+  if (state.mode === 'sudden-death' && state.suddenDeathFailed) {
+    showResults('נפסלת אחרי טעות ראשונה.');
     return;
   }
 
@@ -537,7 +635,11 @@ function startQuiz() {
   const selected = buildSelection();
 
   if (selected.length === 0) {
-    alert('לא נמצאו שאלות בהתאם לסינון שבחרת.');
+    if (state.mode === 'review-wrong') {
+      alert('עדיין אין שאלות שגויות שמורות עבור הסינון שבחרת. נסה קודם לענות על שאלות במצבים אחרים.');
+    } else {
+      alert('לא נמצאו שאלות בהתאם לסינון שבחרת.');
+    }
     return;
   }
 
@@ -550,6 +652,12 @@ function startQuiz() {
     : 3;
   state.marathonHasTimer = false;
   state.freestyleUnlimited = state.mode === 'freestyle' && !el.questionCount.value.trim();
+  state.suddenDeathFailed = false;
+  state.confidenceStats = {
+    high: { total: 0, correct: 0 },
+    medium: { total: 0, correct: 0 },
+    low: { total: 0, correct: 0 },
+  };
   state.quizStartedAt = Date.now();
 
   el.resultSection.classList.add('hidden');
@@ -667,6 +775,7 @@ async function init() {
   state.mode = modeFromPage || modeFromQuery || 'freestyle';
   state.weakProfile = getWeakProfileFromInput();
   loadWeakStats();
+  loadWrongStats();
 
   try {
     const text = await loadQuestionsText();

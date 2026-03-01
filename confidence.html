@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Confidence Mode - מיקרו כלכלה</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body data-mode="confidence">
+  <a class="skip-link" href="#main-content">דלג לתוכן הראשי</a>
+  <main class="container" id="main-content">
+    <header class="card">
+      <div class="header-row">
+        <h1>תרגול שאלות - Confidence Mode</h1>
+        <div class="actions compact">
+          <a class="btn" href="game-modes.html">חזרה למצבי משחק</a>
+          <a class="btn" href="index.html">חזרה לדף הראשי</a>
+          <button id="theme-toggle" class="btn" type="button" aria-label="החלפת מצב תצוגה">🌙 מצב כהה</button>
+        </div>
+      </div>
+      <p id="load-status" class="status">מצב נוכחי: Confidence Mode</p>
+    </header>
+
+    <section class="card" id="setup-section">
+      <h2>הגדרות תרגול</h2>
+
+      <div class="field">
+        <label for="question-count">מספר שאלות לתרגול (השאר ריק = כל השאלות)</label>
+        <input id="question-count" type="number" min="1" placeholder="לדוגמה: 20" />
+      </div>
+
+      <div class="field">
+        <p class="label">בחירת שיעורים / מצגות (ברירת מחדל: כל המצגות מסומנות)</p>
+        <div id="lecture-filters" class="lecture-grid"></div>
+      </div>
+
+      <div class="actions">
+        <button id="start-quiz" class="btn primary">התחל תרגול</button>
+        <button id="reset-setup" class="btn">איפוס בחירה</button>
+      </div>
+
+      <p id="selection-summary" class="muted"></p>
+    </section>
+
+    <section class="card hidden" id="quiz-section">
+      <div class="quiz-head">
+        <h2>תרגול</h2>
+        <p id="progress"></p>
+      </div>
+
+      <div class="quiz-state-row">
+        <p id="mode-status" class="meta"></p>
+        <p id="timer-status" class="meta hidden"></p>
+        <p id="lives-status" class="meta hidden"></p>
+      </div>
+
+      <div id="question-meta" class="meta"></div>
+      <h3 id="question-text" class="question"></h3>
+
+      <div id="confidence-field" class="field">
+        <p class="label">מה רמת הביטחון שלך בתשובה?</p>
+        <div id="confidence-options" class="confidence-options">
+          <label class="confidence-option">
+            <input type="radio" name="confidence-level" value="high" />
+            <span>גבוה</span>
+          </label>
+          <label class="confidence-option">
+            <input type="radio" name="confidence-level" value="medium" />
+            <span>בינוני</span>
+          </label>
+          <label class="confidence-option">
+            <input type="radio" name="confidence-level" value="low" />
+            <span>נמוך</span>
+          </label>
+        </div>
+      </div>
+
+      <form id="answers-form" class="choices"></form>
+
+      <div class="actions">
+        <button id="submit-answer" class="btn primary" type="button">בדיקת תשובה</button>
+        <button id="next-question" class="btn hidden" type="button">לשאלה הבאה</button>
+        <button id="finish-quiz" class="btn" type="button">סיום תרגול</button>
+      </div>
+
+      <div id="feedback" class="feedback hidden"></div>
+    </section>
+
+    <section class="card hidden" id="result-section">
+      <h2>סיכום תרגול</h2>
+      <p id="result-score"></p>
+      <p id="result-details" class="muted"></p>
+      <div class="actions">
+        <button id="restart-quiz" class="btn primary">תרגול נוסף</button>
+      </div>
+    </section>
+  </main>
+
+  <script src="questions-data.js"></script>
+  <script src="quiz.js"></script>
+</body>
+</html>

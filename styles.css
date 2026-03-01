@@ -298,6 +298,26 @@ body[data-theme="dark"] .meta {
   margin-top: 14px;
 }
 
+.confidence-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.confidence-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: linear-gradient(135deg, #ffffff 0%, #f7fbff 100%);
+}
+
+body[data-theme="dark"] .confidence-option {
+  background: linear-gradient(135deg, #172337 0%, #1a2a3f 100%);
+}
+
 .choice {
   display: block;
   border: 1px solid var(--border);
