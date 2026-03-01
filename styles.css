@@ -150,6 +150,10 @@ body[data-theme="dark"] .lecture-item {
   margin-top: 12px;
 }
 
+.actions.compact {
+  margin-top: 0;
+}
+
 .btn {
   border: 1px solid var(--border);
   background: linear-gradient(135deg, #ffffff 0%, #f2f7ff 100%);
@@ -158,6 +162,8 @@ body[data-theme="dark"] .lecture-item {
   border-radius: 9px;
   cursor: pointer;
   font-size: 15px;
+  text-decoration: none;
+  display: inline-block;
 }
 
 body[data-theme="dark"] .btn {
@@ -330,6 +336,84 @@ body[data-theme="dark"] .status {
 }
 
 body[data-theme="dark"] .bank-item {
+  background: linear-gradient(135deg, #172539 0%, #1a2f49 100%);
+}
+
+.files-library {
+  display: grid;
+  gap: 14px;
+}
+
+.file-group {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px;
+  background: linear-gradient(135deg, #ffffff 0%, #f6fbff 100%);
+}
+
+body[data-theme="dark"] .file-group {
+  background: linear-gradient(135deg, #172539 0%, #1a2f49 100%);
+}
+
+.file-group-title {
+  margin: 0 0 8px;
+  font-size: 17px;
+}
+
+.files-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 10px;
+}
+
+.file-item {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  background: linear-gradient(135deg, #ffffff 0%, #f3f8ff 100%);
+}
+
+body[data-theme="dark"] .file-item {
+  background: linear-gradient(135deg, #1c2a41 0%, #213553 100%);
+}
+
+.file-name {
+  margin: 0 0 4px;
+  font-weight: 600;
+  word-break: break-word;
+}
+
+.file-meta {
+  margin: 0 0 8px;
+  font-size: 13px;
+}
+
+.file-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.file-actions .btn {
+  text-decoration: none;
+}
+
+.nav-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 12px;
+}
+
+.nav-item {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  background: linear-gradient(135deg, #ffffff 0%, #f6fbff 100%);
+  display: grid;
+  gap: 8px;
+}
+
+body[data-theme="dark"] .nav-item {
   background: linear-gradient(135deg, #172539 0%, #1a2f49 100%);
 }
 

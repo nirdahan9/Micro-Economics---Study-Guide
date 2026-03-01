@@ -1,7 +1,6 @@
 const state = {
   allQuestions: [],
   lectures: [],
-  studyFiles: [],
   selectedQuestions: [],
   currentIndex: 0,
   score: 0,
@@ -16,7 +15,6 @@ const el = {
   resetSetup: document.getElementById('reset-setup'),
   selectionSummary: document.getElementById('selection-summary'),
 
-  setupSection: document.getElementById('setup-section'),
   quizSection: document.getElementById('quiz-section'),
   resultSection: document.getElementById('result-section'),
 
@@ -34,8 +32,6 @@ const el = {
 
   bankSummary: document.getElementById('bank-summary'),
   questionBank: document.getElementById('question-bank'),
-  filesSummary: document.getElementById('files-summary'),
-  filesLibrary: document.getElementById('files-library'),
   themeToggle: document.getElementById('theme-toggle'),
 };
 
@@ -193,82 +189,6 @@ function renderQuestionBank() {
     item.className = 'bank-item';
     item.textContent = `${idx + 1}. [מצגת ${Number(q.lectureId)} - ${q.lectureTitle}] ${q.text}`;
     el.questionBank.appendChild(item);
-  });
-}
-
-function renderStudyFiles() {
-  if (!el.filesLibrary || !el.filesSummary) return;
-
-  const files = state.studyFiles;
-  el.filesLibrary.innerHTML = '';
-
-  if (!files.length) {
-    el.filesSummary.textContent = 'לא נמצאו קבצים להצגה.';
-    return;
-  }
-
-  el.filesSummary.textContent = `סה״כ ${files.length} קבצים זמינים לקריאה ולהורדה.`;
-
-  const grouped = files.reduce((acc, file) => {
-    const key = file.category || 'כללי';
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(file);
-    return acc;
-  }, {});
-
-  Object.entries(grouped).forEach(([category, groupFiles]) => {
-    const group = document.createElement('section');
-    group.className = 'file-group';
-
-    const title = document.createElement('h3');
-    title.className = 'file-group-title';
-    title.textContent = category;
-    group.appendChild(title);
-
-    const list = document.createElement('div');
-    list.className = 'files-grid';
-
-    groupFiles.forEach((file) => {
-      const item = document.createElement('article');
-      item.className = 'file-item';
-
-      const name = document.createElement('p');
-      name.className = 'file-name';
-      name.textContent = file.name;
-
-      const meta = document.createElement('p');
-      meta.className = 'file-meta muted';
-      meta.textContent = `סוג קובץ: ${(file.ext || 'קובץ').toUpperCase()}`;
-
-      const actions = document.createElement('div');
-      actions.className = 'file-actions';
-
-      const encodedPath = encodeURI(file.path);
-
-      const openLink = document.createElement('a');
-      openLink.className = 'btn';
-      openLink.href = encodedPath;
-      openLink.target = '_blank';
-      openLink.rel = 'noopener noreferrer';
-      openLink.textContent = 'פתח קובץ';
-
-      const downloadLink = document.createElement('a');
-      downloadLink.className = 'btn';
-      downloadLink.href = encodedPath;
-      downloadLink.download = file.name;
-      downloadLink.textContent = 'הורד קובץ';
-
-      actions.appendChild(openLink);
-      actions.appendChild(downloadLink);
-
-      item.appendChild(name);
-      item.appendChild(meta);
-      item.appendChild(actions);
-      list.appendChild(item);
-    });
-
-    group.appendChild(list);
-    el.filesLibrary.appendChild(group);
   });
 }
 
@@ -454,10 +374,8 @@ async function init() {
 
     state.allQuestions = parsed.allQuestions;
     state.lectures = parsed.lectures;
-    state.studyFiles = Array.isArray(window.STUDY_FILES) ? window.STUDY_FILES : [];
 
     renderLectureFilters();
-    renderStudyFiles();
     renderQuestionBank();
     buildSelection();
 

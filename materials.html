@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>חומרי לימוד - מיקרו כלכלה</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="container">
+    <header class="card">
+      <div class="header-row">
+        <h1>חומרי לימוד - מצגות וסיכום</h1>
+        <div class="actions compact">
+          <a class="btn" href="index.html">חזרה לדף הראשי</a>
+          <button id="theme-toggle" class="btn" type="button" aria-label="החלפת מצב תצוגה">🌙 מצב כהה</button>
+        </div>
+      </div>
+      <p id="files-summary" class="status">טוען קבצים...</p>
+    </header>
+
+    <section class="card" id="files-section">
+      <h2>ספריית קבצים</h2>
+      <div id="files-library" class="files-library"></div>
+    </section>
+  </main>
+
+  <script src="documents-data.js"></script>
+  <script src="materials.js"></script>
+</body>
+</html>
