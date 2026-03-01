@@ -3,30 +3,31 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Freestyle - תרגול חופשי</title>
+  <title>חלשים קודם - מיקרו כלכלה</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
-<body data-mode="freestyle">
+<body data-mode="weak-first">
   <a class="skip-link" href="#main-content">דלג לתוכן הראשי</a>
   <main class="container" id="main-content">
     <header class="card">
       <div class="header-row">
-        <h1>Freestyle - תרגול חופשי</h1>
+        <h1>תרגול שאלות - מצב חלשים קודם</h1>
         <div class="actions compact">
+          <a class="btn" href="game-modes.html">חזרה למצבי משחק</a>
           <a class="btn" href="index.html">חזרה לדף הראשי</a>
-          <a class="btn" href="game-modes.html">מצבי משחק</a>
           <button id="theme-toggle" class="btn" type="button" aria-label="החלפת מצב תצוגה">🌙 מצב כהה</button>
         </div>
       </div>
-      <p id="load-status" class="status">טוען שאלות...</p>
+      <p id="load-status" class="status">מצב נוכחי: חלשים קודם</p>
     </header>
 
     <section class="card" id="setup-section">
       <h2>הגדרות תרגול</h2>
 
-      <div class="field hidden" id="timer-field">
-        <label for="timer-minutes">משך זמן בדקות (למצב טיימר)</label>
-        <input id="timer-minutes" type="number" min="1" max="120" value="5" />
+      <div class="field" id="weak-user-settings">
+        <label for="weak-username">שם משתמש לשמירת התקדמות (אופציונלי)</label>
+        <input id="weak-username" type="text" placeholder="למשל: Noa" />
+        <p id="weak-profile-status" class="muted">פרופיל פעיל: כללי</p>
       </div>
 
       <div class="field">
@@ -82,13 +83,6 @@
       </div>
     </section>
 
-    <section class="card">
-      <details>
-        <summary>מאגר השאלות באתר</summary>
-        <p class="muted" id="bank-summary"></p>
-        <div id="question-bank" class="question-bank"></div>
-      </details>
-    </section>
   </main>
 
   <script src="questions-data.js"></script>

@@ -128,7 +128,8 @@ h1, h2, h3 {
   font-weight: 500;
 }
 
-input[type="number"] {
+input[type="number"],
+input[type="text"] {
   width: 220px;
   max-width: 100%;
   padding: 10px;
@@ -151,7 +152,8 @@ select {
 }
 
 body[data-theme="dark"] select,
-body[data-theme="dark"] input[type="number"] {
+body[data-theme="dark"] input[type="number"],
+body[data-theme="dark"] input[type="text"] {
   background: #162236;
   color: var(--text);
 }
@@ -445,22 +447,6 @@ body[data-theme="dark"] .file-item {
 
 .file-actions .btn {
   text-decoration: none;
-}
-
-.leaderboard-list {
-  display: grid;
-  gap: 8px;
-}
-
-.leaderboard-item {
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 8px;
-  background: linear-gradient(135deg, #ffffff 0%, #f6fbff 100%);
-}
-
-body[data-theme="dark"] .leaderboard-item {
-  background: linear-gradient(135deg, #172539 0%, #1a2f49 100%);
 }
 
 .nav-grid {

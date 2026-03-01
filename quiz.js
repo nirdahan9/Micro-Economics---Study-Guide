@@ -4,22 +4,29 @@ const state = {
   selectedQuestions: [],
   currentIndex: 0,
   score: 0,
+  answeredCount: 0,
   answered: false,
-  mode: 'marathon',
+  mode: 'freestyle',
   lives: 3,
   timerInterval: null,
   timeRemainingSec: 0,
+  marathonHasTimer: false,
+  freestyleUnlimited: false,
   quizStartedAt: 0,
+  weakProfile: 'global',
   weakStats: {},
-  leaderboard: {},
 };
 
 const el = {
   loadStatus: document.getElementById('load-status'),
   lectureFilters: document.getElementById('lecture-filters'),
   questionCount: document.getElementById('question-count'),
-  timerMinutes: document.getElementById('timer-minutes'),
-  timerField: document.getElementById('timer-field'),
+  timerMinutes: document.getElementById('timer-minutes') || document.getElementById('timer-seconds'),
+  timerField: document.getElementById('timer-field') || document.getElementById('timer-settings'),
+  marathonTotalMinutes: document.getElementById('marathon-total-minutes'),
+  livesCount: document.getElementById('lives-count'),
+  weakUsername: document.getElementById('weak-username'),
+  weakProfileStatus: document.getElementById('weak-profile-status'),
   startQuiz: document.getElementById('start-quiz'),
   resetSetup: document.getElementById('reset-setup'),
   selectionSummary: document.getElementById('selection-summary'),
@@ -36,14 +43,12 @@ const el = {
   answersForm: document.getElementById('answers-form'),
   submitAnswer: document.getElementById('submit-answer'),
   nextQuestion: document.getElementById('next-question'),
+  finishQuiz: document.getElementById('finish-quiz'),
   feedback: document.getElementById('feedback'),
 
   resultScore: document.getElementById('result-score'),
   resultDetails: document.getElementById('result-details'),
   restartQuiz: document.getElementById('restart-quiz'),
-
-  leaderboardTitle: document.getElementById('leaderboard-title'),
-  leaderboardList: document.getElementById('leaderboard-list'),
 
   bankSummary: document.getElementById('bank-summary'),
   questionBank: document.getElementById('question-bank'),
@@ -52,14 +57,20 @@ const el = {
 
 const THEME_KEY = 'micro-study-theme';
 const WEAK_STATS_KEY = 'micro-study-weak-stats-v1';
-const LEADERBOARD_KEY = 'micro-study-leaderboard-v1';
 
 const MODE_LABELS = {
+  freestyle: 'Freestyle',
   marathon: 'מרתון',
   timer: 'טיימר',
   lives: 'חיים',
   'weak-first': 'חלשים קודם',
 };
+
+function getModeFromPage() {
+  const mode = document.body?.dataset?.mode;
+  if (!mode) return null;
+  return Object.prototype.hasOwnProperty.call(MODE_LABELS, mode) ? mode : null;
+}
 
 function getModeFromQuery() {
   const params = new URLSearchParams(window.location.search);
@@ -212,6 +223,7 @@ function renderLectureFilters() {
 }
 
 function renderQuestionBank() {
+  if (!el.questionBank || !el.bankSummary) return;
   el.questionBank.innerHTML = '';
   el.bankSummary.textContent = `סה״כ ${state.allQuestions.length} שאלות במאגר.`;
 
@@ -237,29 +249,22 @@ function shuffle(arr) {
 }
 
 function loadWeakStats() {
+  const key = `${WEAK_STATS_KEY}__${state.weakProfile}`;
   try {
-    const raw = localStorage.getItem(WEAK_STATS_KEY);
+    const raw = localStorage.getItem(key);
     state.weakStats = raw ? JSON.parse(raw) : {};
   } catch {
     state.weakStats = {};
   }
-}
 
-function saveWeakStats() {
-  localStorage.setItem(WEAK_STATS_KEY, JSON.stringify(state.weakStats));
-}
-
-function loadLeaderboard() {
-  try {
-    const raw = localStorage.getItem(LEADERBOARD_KEY);
-    state.leaderboard = raw ? JSON.parse(raw) : {};
-  } catch {
-    state.leaderboard = {};
+  if (el.weakProfileStatus) {
+    el.weakProfileStatus.textContent = `פרופיל פעיל: ${state.weakProfile === 'global' ? 'כללי' : state.weakProfile}`;
   }
 }
 
-function saveLeaderboard() {
-  localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(state.leaderboard));
+function saveWeakStats() {
+  const key = `${WEAK_STATS_KEY}__${state.weakProfile}`;
+  localStorage.setItem(key, JSON.stringify(state.weakStats));
 }
 
 function getModeLabel(mode) {
@@ -270,7 +275,31 @@ function updateModeUi() {
   if (el.timerField) {
     el.timerField.classList.toggle('hidden', state.mode !== 'timer');
   }
-  renderLeaderboard();
+
+  if (el.livesCount && state.mode !== 'lives') {
+    el.livesCount.closest('.field')?.classList.add('hidden');
+  }
+
+  if (el.livesCount && state.mode === 'lives') {
+    el.livesCount.closest('.field')?.classList.remove('hidden');
+  }
+
+  if (el.marathonTotalMinutes && state.mode !== 'marathon') {
+    el.marathonTotalMinutes.closest('.field')?.classList.add('hidden');
+  }
+
+  if (el.marathonTotalMinutes && state.mode === 'marathon') {
+    el.marathonTotalMinutes.closest('.field')?.classList.remove('hidden');
+  }
+
+  if (el.weakUsername && state.mode !== 'weak-first') {
+    el.weakUsername.closest('.field')?.classList.add('hidden');
+  }
+
+  if (el.weakUsername && state.mode === 'weak-first') {
+    el.weakUsername.closest('.field')?.classList.remove('hidden');
+  }
+
   buildSelection();
 }
 
@@ -311,63 +340,6 @@ function updateLivesStatus() {
   if (el.livesStatus) {
     el.livesStatus.textContent = `חיים שנותרו: ${state.lives}`;
   }
-}
-
-function renderLeaderboard() {
-  if (!el.leaderboardList || !el.leaderboardTitle) return;
-
-  const mode = state.mode || 'marathon';
-  el.leaderboardTitle.textContent = `תוצאות מובילות - מצב ${getModeLabel(mode)}`;
-
-  if (!['marathon', 'timer', 'lives'].includes(mode)) {
-    el.leaderboardList.innerHTML = '<p class="muted">למצב זה אין Leaderboard.</p>';
-    return;
-  }
-
-  const entries = state.leaderboard[mode] || [];
-  if (!entries.length) {
-    el.leaderboardList.innerHTML = '<p class="muted">עדיין אין תוצאות שמורות במצב הזה.</p>';
-    return;
-  }
-
-  el.leaderboardList.innerHTML = '';
-  entries.forEach((entry, i) => {
-    const item = document.createElement('div');
-    item.className = 'leaderboard-item';
-    const date = new Date(entry.ts).toLocaleString('he-IL');
-    item.textContent = `${i + 1}. ציון ${entry.score}/${entry.total} (${entry.percent}%) • זמן ${formatDuration(entry.durationSec)} • ${date}`;
-    el.leaderboardList.appendChild(item);
-  });
-}
-
-function saveLeaderboardEntry(reason = '') {
-  const mode = state.mode;
-  if (!['marathon', 'timer', 'lives'].includes(mode)) return;
-  const total = state.selectedQuestions.length;
-  if (!total) return;
-
-  const durationSec = Math.max(0, Math.floor((Date.now() - state.quizStartedAt) / 1000));
-  const percent = Math.round((state.score / total) * 100);
-  const entry = {
-    score: state.score,
-    total,
-    percent,
-    durationSec,
-    ts: Date.now(),
-    reason,
-  };
-
-  const list = state.leaderboard[mode] || [];
-  list.push(entry);
-
-  list.sort((a, b) => {
-    if (b.percent !== a.percent) return b.percent - a.percent;
-    if (b.score !== a.score) return b.score - a.score;
-    return a.durationSec - b.durationSec;
-  });
-
-  state.leaderboard[mode] = list.slice(0, 10);
-  saveLeaderboard();
 }
 
 function buildSelection() {
@@ -413,13 +385,19 @@ function renderCurrentQuestion() {
   el.submitAnswer.disabled = false;
   el.nextQuestion.classList.add('hidden');
 
-  el.progress.textContent = `שאלה ${state.currentIndex + 1} מתוך ${state.selectedQuestions.length}`;
+  if (state.mode === 'freestyle' && state.freestyleUnlimited) {
+    el.progress.textContent = `שאלה ${state.currentIndex + 1} (Freestyle פתוח)`;
+  } else {
+    el.progress.textContent = `שאלה ${state.currentIndex + 1} מתוך ${state.selectedQuestions.length}`;
+  }
+
   if (el.modeStatus) {
     el.modeStatus.textContent = `מצב משחק: ${getModeLabel(state.mode)}`;
   }
 
   if (el.timerStatus) {
-    el.timerStatus.classList.toggle('hidden', state.mode !== 'timer');
+    const showTimer = state.mode === 'timer' || (state.mode === 'marathon' && state.marathonHasTimer);
+    el.timerStatus.classList.toggle('hidden', !showTimer);
   }
 
   if (el.livesStatus) {
@@ -472,6 +450,7 @@ function submitCurrentAnswer() {
 
   const userAnswer = checked.value;
   const isCorrect = userAnswer === q.correct;
+  state.answeredCount += 1;
 
   if (isCorrect) {
     state.score += 1;
@@ -506,7 +485,7 @@ function showResults(reason = '') {
   el.quizSection.classList.add('hidden');
   el.resultSection.classList.remove('hidden');
 
-  const total = state.selectedQuestions.length;
+  const total = Math.max(1, state.answeredCount);
   const percent = total ? Math.round((state.score / total) * 100) : 0;
   const durationSec = Math.max(0, Math.floor((Date.now() - state.quizStartedAt) / 1000));
 
@@ -516,8 +495,6 @@ function showResults(reason = '') {
   if (state.mode === 'lives') details.push(`חיים שנותרו: ${Math.max(0, state.lives)}`);
   el.resultDetails.textContent = `${details.join(' | ')}. ניתן להתחיל תרגול נוסף עם בחירה חדשה של מספר שאלות ושיעורים.`;
 
-  saveLeaderboardEntry(reason);
-  renderLeaderboard();
 }
 
 function moveNext() {
@@ -529,13 +506,34 @@ function moveNext() {
   if (state.currentIndex < state.selectedQuestions.length - 1) {
     state.currentIndex += 1;
     renderCurrentQuestion();
+  } else if (state.mode === 'freestyle' && state.freestyleUnlimited) {
+    state.selectedQuestions = shuffle(state.selectedQuestions);
+    state.currentIndex = 0;
+    renderCurrentQuestion();
   } else {
     showResults();
   }
 }
 
+function getWeakProfileFromInput() {
+  const raw = (el.weakUsername?.value || '').trim();
+  if (!raw) return 'global';
+  return raw.toLowerCase().replace(/\s+/g, '_').slice(0, 40);
+}
+
+function applyWeakProfileFromInput() {
+  state.weakProfile = getWeakProfileFromInput();
+  loadWeakStats();
+  buildSelection();
+}
+
 function startQuiz() {
   stopTimer();
+
+  if (state.mode === 'weak-first') {
+    applyWeakProfileFromInput();
+  }
+
   const selected = buildSelection();
 
   if (selected.length === 0) {
@@ -546,16 +544,34 @@ function startQuiz() {
   state.selectedQuestions = selected;
   state.currentIndex = 0;
   state.score = 0;
-  state.lives = 3;
+  state.answeredCount = 0;
+  state.lives = state.mode === 'lives'
+    ? Math.max(1, Number(el.livesCount?.value || 3))
+    : 3;
+  state.marathonHasTimer = false;
+  state.freestyleUnlimited = state.mode === 'freestyle' && !el.questionCount.value.trim();
   state.quizStartedAt = Date.now();
 
   el.resultSection.classList.add('hidden');
   el.quizSection.classList.remove('hidden');
 
   if (state.mode === 'timer') {
-    const minutes = Number(el.timerMinutes?.value || 5);
-    state.timeRemainingSec = Math.max(1, Math.floor(minutes * 60));
+    const timerValue = Number(el.timerMinutes?.value || 5);
+    const usesSeconds = Boolean(document.getElementById('timer-seconds'));
+    state.timeRemainingSec = usesSeconds
+      ? Math.max(1, Math.floor(timerValue))
+      : Math.max(1, Math.floor(timerValue * 60));
     startTimer();
+  } else if (state.mode === 'marathon') {
+    const totalMinutes = Number(el.marathonTotalMinutes?.value || 0);
+    if (Number.isFinite(totalMinutes) && totalMinutes > 0) {
+      state.timeRemainingSec = Math.max(1, Math.floor(totalMinutes * 60));
+      state.marathonHasTimer = true;
+      startTimer();
+    } else {
+      state.timeRemainingSec = 0;
+      stopTimer();
+    }
   } else {
     state.timeRemainingSec = 0;
     stopTimer();
@@ -566,7 +582,16 @@ function startQuiz() {
 
 function resetSetup() {
   el.questionCount.value = '';
-  if (el.timerMinutes) el.timerMinutes.value = '5';
+  if (el.timerMinutes) {
+    const usesSeconds = Boolean(document.getElementById('timer-seconds'));
+    el.timerMinutes.value = usesSeconds ? '45' : '5';
+  }
+  if (el.marathonTotalMinutes) {
+    el.marathonTotalMinutes.value = '';
+  }
+  if (el.livesCount) {
+    el.livesCount.value = '3';
+  }
   [...el.lectureFilters.querySelectorAll('input[type="checkbox"]')].forEach((c) => {
     c.checked = true;
   });
@@ -605,11 +630,12 @@ async function loadQuestionsText() {
 
 async function init() {
   initTheme();
-  loadWeakStats();
-  loadLeaderboard();
 
+  const modeFromPage = getModeFromPage();
   const modeFromQuery = getModeFromQuery();
-  state.mode = modeFromQuery || 'marathon';
+  state.mode = modeFromPage || modeFromQuery || 'freestyle';
+  state.weakProfile = getWeakProfileFromInput();
+  loadWeakStats();
 
   try {
     const text = await loadQuestionsText();
@@ -623,7 +649,7 @@ async function init() {
     updateModeUi();
     buildSelection();
 
-    el.loadStatus.textContent = `נטענו ${state.allQuestions.length} שאלות מתוך ${state.lectures.length} מצגות.`;
+    el.loadStatus.textContent = `מצב נוכחי: ${getModeLabel(state.mode)} | נטענו ${state.allQuestions.length} שאלות מתוך ${state.lectures.length} מצגות.`;
 
     el.startQuiz.disabled = false;
     el.submitAnswer.disabled = false;
@@ -637,6 +663,9 @@ async function init() {
   el.resetSetup.addEventListener('click', resetSetup);
   el.submitAnswer.addEventListener('click', submitCurrentAnswer);
   el.nextQuestion.addEventListener('click', moveNext);
+  el.finishQuiz?.addEventListener('click', () => {
+    showResults('התרגול הסתיים לפי בחירתך.');
+  });
   el.themeToggle?.addEventListener('click', () => {
     const current = document.body.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
     applyTheme(current === 'dark' ? 'light' : 'dark');
@@ -650,6 +679,9 @@ async function init() {
   el.questionCount.addEventListener('input', buildSelection);
   el.lectureFilters.addEventListener('change', buildSelection);
   el.timerMinutes?.addEventListener('input', buildSelection);
+  el.marathonTotalMinutes?.addEventListener('input', buildSelection);
+  el.livesCount?.addEventListener('input', buildSelection);
+  el.weakUsername?.addEventListener('change', applyWeakProfileFromInput);
 }
 
 init();
