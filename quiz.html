@@ -7,12 +7,14 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <main class="container">
+  <a class="skip-link" href="#main-content">דלג לתוכן הראשי</a>
+  <main class="container" id="main-content">
     <header class="card">
       <div class="header-row">
         <h1>תרגול שאלות - מיקרו כלכלה</h1>
         <div class="actions compact">
           <a class="btn" href="index.html">חזרה לדף הראשי</a>
+          <a class="btn" href="game-modes.html">מצבי משחק</a>
           <button id="theme-toggle" class="btn" type="button" aria-label="החלפת מצב תצוגה">🌙 מצב כהה</button>
         </div>
       </div>
@@ -21,6 +23,21 @@
 
     <section class="card" id="setup-section">
       <h2>הגדרות תרגול</h2>
+
+      <div class="field">
+        <label for="game-mode">מצב משחק</label>
+        <select id="game-mode">
+          <option value="marathon">מרתון</option>
+          <option value="timer">טיימר</option>
+          <option value="lives">חיים (3 פסילות)</option>
+          <option value="weak-first">חלשים קודם</option>
+        </select>
+      </div>
+
+      <div class="field hidden" id="timer-field">
+        <label for="timer-minutes">משך זמן בדקות (למצב טיימר)</label>
+        <input id="timer-minutes" type="number" min="1" max="120" value="5" />
+      </div>
 
       <div class="field">
         <label for="question-count">מספר שאלות לתרגול (השאר ריק = כל השאלות)</label>
@@ -46,6 +63,12 @@
         <p id="progress"></p>
       </div>
 
+      <div class="quiz-state-row">
+        <p id="mode-status" class="meta"></p>
+        <p id="timer-status" class="meta hidden"></p>
+        <p id="lives-status" class="meta hidden"></p>
+      </div>
+
       <div id="question-meta" class="meta"></div>
       <h3 id="question-text" class="question"></h3>
 
@@ -66,6 +89,12 @@
       <div class="actions">
         <button id="restart-quiz" class="btn primary">תרגול נוסף</button>
       </div>
+    </section>
+
+    <section class="card" id="leaderboard-section">
+      <h2>Leaderboard</h2>
+      <p id="leaderboard-title" class="muted"></p>
+      <div id="leaderboard-list" class="leaderboard-list"></div>
     </section>
 
     <section class="card">

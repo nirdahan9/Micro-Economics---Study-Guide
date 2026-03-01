@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>מרכז ניווט - מיקרו כלכלה</title>
+  <title>מצבי משחק - מיקרו כלכלה</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -11,38 +11,47 @@
   <main class="container" id="main-content">
     <header class="card">
       <div class="header-row">
-        <h1>מרכז ניווט - מיקרו כלכלה</h1>
-        <button id="theme-toggle" class="btn" type="button" aria-label="החלפת מצב תצוגה">🌙 מצב כהה</button>
+        <h1>מצבי משחק</h1>
+        <div class="actions compact">
+          <a class="btn" href="index.html">חזרה לדף הראשי</a>
+          <button id="theme-toggle" class="btn" type="button" aria-label="החלפת מצב תצוגה">🌙 מצב כהה</button>
+        </div>
       </div>
-      <p class="status">בחר לאיזה מסך להיכנס</p>
+      <p class="status">בחר מצב משחק והתחל לתרגל</p>
     </header>
 
     <section class="card">
-      <h2>מסכים זמינים</h2>
+      <h2>בחירת מצב</h2>
       <div class="nav-grid">
         <article class="nav-item">
-          <h3>תרגול שאלות</h3>
-          <p class="muted">בחירת מספר שאלות, סינון לפי מצגות, וקבלת פידבק מיידי.</p>
-          <a class="btn primary" href="quiz.html">כניסה לתרגול</a>
+          <h3>מרתון</h3>
+          <p class="muted">רצף שאלות בקצב שלך, עם Leaderboard לפי דיוק וזמן.</p>
+          <a class="btn primary" href="quiz.html?mode=marathon">התחל מרתון</a>
         </article>
 
         <article class="nav-item">
-          <h3>מצגות וסיכום</h3>
-          <p class="muted">פתיחה והורדה של כל קבצי ההרצאות והסיכום במקום אחד.</p>
-          <a class="btn primary" href="materials.html">כניסה לחומרי לימוד</a>
+          <h3>טיימר</h3>
+          <p class="muted">ענה על כמה שיותר שאלות בזמן מוגבל.</p>
+          <a class="btn primary" href="quiz.html?mode=timer">התחל טיימר</a>
         </article>
 
         <article class="nav-item">
-          <h3>מצבי משחק נוספים</h3>
-          <p class="muted">כניסה מהירה למסך מצבי המשחק: מרתון, טיימר, חיים, חלשים קודם.</p>
-          <a class="btn primary" href="game-modes.html">כניסה למצבי משחק</a>
+          <h3>חיים (3 פסילות)</h3>
+          <p class="muted">כל טעות מורידה חיים. נגמרו החיים – הסיבוב נגמר.</p>
+          <a class="btn primary" href="quiz.html?mode=lives">התחל מצב חיים</a>
+        </article>
+
+        <article class="nav-item">
+          <h3>חלשים קודם</h3>
+          <p class="muted">התמקדות בשאלות שבהן טעית בעבר, לחיזוק ממוקד.</p>
+          <a class="btn primary" href="quiz.html?mode=weak-first">התחל חלשים קודם</a>
         </article>
       </div>
     </section>
   </main>
 
   <script>
-    (function initHomeTheme() {
+    (function initGameModesTheme() {
       const key = 'micro-study-theme';
       const btn = document.getElementById('theme-toggle');
 

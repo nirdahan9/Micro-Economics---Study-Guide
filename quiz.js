@@ -5,12 +5,22 @@ const state = {
   currentIndex: 0,
   score: 0,
   answered: false,
+  mode: 'marathon',
+  lives: 3,
+  timerInterval: null,
+  timeRemainingSec: 0,
+  quizStartedAt: 0,
+  weakStats: {},
+  leaderboard: {},
 };
 
 const el = {
   loadStatus: document.getElementById('load-status'),
   lectureFilters: document.getElementById('lecture-filters'),
   questionCount: document.getElementById('question-count'),
+  gameMode: document.getElementById('game-mode'),
+  timerMinutes: document.getElementById('timer-minutes'),
+  timerField: document.getElementById('timer-field'),
   startQuiz: document.getElementById('start-quiz'),
   resetSetup: document.getElementById('reset-setup'),
   selectionSummary: document.getElementById('selection-summary'),
@@ -19,6 +29,9 @@ const el = {
   resultSection: document.getElementById('result-section'),
 
   progress: document.getElementById('progress'),
+  modeStatus: document.getElementById('mode-status'),
+  timerStatus: document.getElementById('timer-status'),
+  livesStatus: document.getElementById('lives-status'),
   questionMeta: document.getElementById('question-meta'),
   questionText: document.getElementById('question-text'),
   answersForm: document.getElementById('answers-form'),
@@ -30,12 +43,31 @@ const el = {
   resultDetails: document.getElementById('result-details'),
   restartQuiz: document.getElementById('restart-quiz'),
 
+  leaderboardTitle: document.getElementById('leaderboard-title'),
+  leaderboardList: document.getElementById('leaderboard-list'),
+
   bankSummary: document.getElementById('bank-summary'),
   questionBank: document.getElementById('question-bank'),
   themeToggle: document.getElementById('theme-toggle'),
 };
 
 const THEME_KEY = 'micro-study-theme';
+const WEAK_STATS_KEY = 'micro-study-weak-stats-v1';
+const LEADERBOARD_KEY = 'micro-study-leaderboard-v1';
+
+const MODE_LABELS = {
+  marathon: 'מרתון',
+  timer: 'טיימר',
+  lives: 'חיים',
+  'weak-first': 'חלשים קודם',
+};
+
+function getModeFromQuery() {
+  const params = new URLSearchParams(window.location.search);
+  const mode = params.get('mode');
+  if (!mode) return null;
+  return Object.prototype.hasOwnProperty.call(MODE_LABELS, mode) ? mode : null;
+}
 
 function cleanQuotedValue(raw) {
   if (!raw) return '';
@@ -205,17 +237,165 @@ function shuffle(arr) {
   return copy;
 }
 
+function loadWeakStats() {
+  try {
+    const raw = localStorage.getItem(WEAK_STATS_KEY);
+    state.weakStats = raw ? JSON.parse(raw) : {};
+  } catch {
+    state.weakStats = {};
+  }
+}
+
+function saveWeakStats() {
+  localStorage.setItem(WEAK_STATS_KEY, JSON.stringify(state.weakStats));
+}
+
+function loadLeaderboard() {
+  try {
+    const raw = localStorage.getItem(LEADERBOARD_KEY);
+    state.leaderboard = raw ? JSON.parse(raw) : {};
+  } catch {
+    state.leaderboard = {};
+  }
+}
+
+function saveLeaderboard() {
+  localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(state.leaderboard));
+}
+
+function getModeLabel(mode) {
+  return MODE_LABELS[mode] || mode;
+}
+
+function updateModeUi() {
+  const mode = el.gameMode?.value || 'marathon';
+  state.mode = mode;
+  if (el.timerField) {
+    el.timerField.classList.toggle('hidden', mode !== 'timer');
+  }
+  renderLeaderboard();
+  buildSelection();
+}
+
+function formatDuration(seconds) {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+function stopTimer() {
+  if (state.timerInterval) {
+    clearInterval(state.timerInterval);
+    state.timerInterval = null;
+  }
+}
+
+function updateTimerStatus() {
+  if (!el.timerStatus) return;
+  el.timerStatus.textContent = `זמן נותר: ${formatDuration(Math.max(0, state.timeRemainingSec))}`;
+}
+
+function startTimer() {
+  stopTimer();
+  updateTimerStatus();
+
+  state.timerInterval = window.setInterval(() => {
+    state.timeRemainingSec -= 1;
+    updateTimerStatus();
+    if (state.timeRemainingSec <= 0) {
+      state.timeRemainingSec = 0;
+      stopTimer();
+      showResults('הזמן הסתיים.');
+    }
+  }, 1000);
+}
+
+function updateLivesStatus() {
+  if (el.livesStatus) {
+    el.livesStatus.textContent = `חיים שנותרו: ${state.lives}`;
+  }
+}
+
+function renderLeaderboard() {
+  if (!el.leaderboardList || !el.leaderboardTitle) return;
+
+  const mode = state.mode || el.gameMode?.value || 'marathon';
+  el.leaderboardTitle.textContent = `תוצאות מובילות - מצב ${getModeLabel(mode)}`;
+
+  if (!['marathon', 'timer', 'lives'].includes(mode)) {
+    el.leaderboardList.innerHTML = '<p class="muted">למצב זה אין Leaderboard.</p>';
+    return;
+  }
+
+  const entries = state.leaderboard[mode] || [];
+  if (!entries.length) {
+    el.leaderboardList.innerHTML = '<p class="muted">עדיין אין תוצאות שמורות במצב הזה.</p>';
+    return;
+  }
+
+  el.leaderboardList.innerHTML = '';
+  entries.forEach((entry, i) => {
+    const item = document.createElement('div');
+    item.className = 'leaderboard-item';
+    const date = new Date(entry.ts).toLocaleString('he-IL');
+    item.textContent = `${i + 1}. ציון ${entry.score}/${entry.total} (${entry.percent}%) • זמן ${formatDuration(entry.durationSec)} • ${date}`;
+    el.leaderboardList.appendChild(item);
+  });
+}
+
+function saveLeaderboardEntry(reason = '') {
+  const mode = state.mode;
+  if (!['marathon', 'timer', 'lives'].includes(mode)) return;
+  const total = state.selectedQuestions.length;
+  if (!total) return;
+
+  const durationSec = Math.max(0, Math.floor((Date.now() - state.quizStartedAt) / 1000));
+  const percent = Math.round((state.score / total) * 100);
+  const entry = {
+    score: state.score,
+    total,
+    percent,
+    durationSec,
+    ts: Date.now(),
+    reason,
+  };
+
+  const list = state.leaderboard[mode] || [];
+  list.push(entry);
+
+  list.sort((a, b) => {
+    if (b.percent !== a.percent) return b.percent - a.percent;
+    if (b.score !== a.score) return b.score - a.score;
+    return a.durationSec - b.durationSec;
+  });
+
+  state.leaderboard[mode] = list.slice(0, 10);
+  saveLeaderboard();
+}
+
 function buildSelection() {
+  state.mode = el.gameMode?.value || 'marathon';
   const selectedLectures = getSelectedLectureIds();
-  const filtered = state.allQuestions.filter((q) => selectedLectures.includes(q.lectureId));
+  let filtered = state.allQuestions.filter((q) => selectedLectures.includes(q.lectureId));
+
+  if (state.mode === 'weak-first') {
+    filtered = [...filtered].sort((a, b) => {
+      const aw = Number(state.weakStats[a.uniqueId] || 0);
+      const bw = Number(state.weakStats[b.uniqueId] || 0);
+      if (bw !== aw) return bw - aw;
+      return Math.random() - 0.5;
+    });
+  } else {
+    filtered = shuffle(filtered);
+  }
 
   const countInput = el.questionCount.value.trim();
   const requestedCount = countInput ? Number(countInput) : null;
 
-  let selected = filtered;
+  let selected = [...filtered];
 
   if (requestedCount && Number.isFinite(requestedCount) && requestedCount > 0) {
-    selected = shuffle(filtered).slice(0, Math.min(requestedCount, filtered.length));
+    selected = selected.slice(0, Math.min(requestedCount, filtered.length));
   }
 
   const lectureText = selectedLectures.length
@@ -238,11 +418,32 @@ function renderCurrentQuestion() {
   el.nextQuestion.classList.add('hidden');
 
   el.progress.textContent = `שאלה ${state.currentIndex + 1} מתוך ${state.selectedQuestions.length}`;
+  if (el.modeStatus) {
+    el.modeStatus.textContent = `מצב משחק: ${getModeLabel(state.mode)}`;
+  }
+
+  if (el.timerStatus) {
+    el.timerStatus.classList.toggle('hidden', state.mode !== 'timer');
+  }
+
+  if (el.livesStatus) {
+    el.livesStatus.classList.toggle('hidden', state.mode !== 'lives');
+  }
+
+  if (state.mode === 'timer') {
+    updateTimerStatus();
+  }
+
+  if (state.mode === 'lives') {
+    updateLivesStatus();
+  }
+
   el.questionMeta.textContent = `מצגת ${Number(q.lectureId)} - ${q.lectureTitle}`;
   el.questionText.textContent = q.text;
 
   el.answersForm.innerHTML = '';
-  ['A', 'B', 'C', 'D'].forEach((key) => {
+  const choiceOrder = shuffle(['A', 'B', 'C', 'D']);
+  choiceOrder.forEach((key) => {
     if (!q.choices[key]) return;
     const label = document.createElement('label');
     label.className = 'choice';
@@ -281,27 +482,54 @@ function submitCurrentAnswer() {
     el.feedback.className = 'feedback ok';
     el.feedback.innerHTML = `<strong>נכון!</strong><br>הסבר: ${q.explanation}`;
   } else {
+    state.weakStats[q.uniqueId] = Number(state.weakStats[q.uniqueId] || 0) + 1;
+    saveWeakStats();
+
+    if (state.mode === 'lives') {
+      state.lives -= 1;
+      updateLivesStatus();
+    }
+
     el.feedback.className = 'feedback bad';
     el.feedback.innerHTML = `<strong>לא נכון.</strong><br>התשובה הנכונה היא: ${q.correct}. ${q.choices[q.correct] || ''}<br><br>הסבר: ${q.explanation}`;
   }
 
   state.answered = true;
   el.submitAnswer.disabled = true;
+  if (state.mode === 'lives' && state.lives <= 0) {
+    el.nextQuestion.textContent = 'לסיכום';
+  } else {
+    el.nextQuestion.textContent = 'לשאלה הבאה';
+  }
+
   el.nextQuestion.classList.remove('hidden');
 }
 
-function showResults() {
+function showResults(reason = '') {
+  stopTimer();
   el.quizSection.classList.add('hidden');
   el.resultSection.classList.remove('hidden');
 
   const total = state.selectedQuestions.length;
   const percent = total ? Math.round((state.score / total) * 100) : 0;
+  const durationSec = Math.max(0, Math.floor((Date.now() - state.quizStartedAt) / 1000));
 
   el.resultScore.textContent = `ציון: ${state.score} מתוך ${total} (${percent}%).`;
-  el.resultDetails.textContent = 'ניתן להתחיל תרגול נוסף עם בחירה חדשה של מספר שאלות ושיעורים.';
+  const details = [`משך: ${formatDuration(durationSec)}`];
+  if (reason) details.push(reason);
+  if (state.mode === 'lives') details.push(`חיים שנותרו: ${Math.max(0, state.lives)}`);
+  el.resultDetails.textContent = `${details.join(' | ')}. ניתן להתחיל תרגול נוסף עם בחירה חדשה של מספר שאלות ושיעורים.`;
+
+  saveLeaderboardEntry(reason);
+  renderLeaderboard();
 }
 
 function moveNext() {
+  if (state.mode === 'lives' && state.lives <= 0) {
+    showResults('נגמרו החיים.');
+    return;
+  }
+
   if (state.currentIndex < state.selectedQuestions.length - 1) {
     state.currentIndex += 1;
     renderCurrentQuestion();
@@ -311,6 +539,7 @@ function moveNext() {
 }
 
 function startQuiz() {
+  stopTimer();
   const selected = buildSelection();
 
   if (selected.length === 0) {
@@ -321,18 +550,32 @@ function startQuiz() {
   state.selectedQuestions = selected;
   state.currentIndex = 0;
   state.score = 0;
+  state.lives = 3;
+  state.quizStartedAt = Date.now();
 
   el.resultSection.classList.add('hidden');
   el.quizSection.classList.remove('hidden');
+
+  if (state.mode === 'timer') {
+    const minutes = Number(el.timerMinutes?.value || 5);
+    state.timeRemainingSec = Math.max(1, Math.floor(minutes * 60));
+    startTimer();
+  } else {
+    state.timeRemainingSec = 0;
+    stopTimer();
+  }
 
   renderCurrentQuestion();
 }
 
 function resetSetup() {
   el.questionCount.value = '';
+  if (el.timerMinutes) el.timerMinutes.value = '5';
+  if (el.gameMode) el.gameMode.value = 'marathon';
   [...el.lectureFilters.querySelectorAll('input[type="checkbox"]')].forEach((c) => {
     c.checked = true;
   });
+  updateModeUi();
   buildSelection();
 }
 
@@ -367,6 +610,13 @@ async function loadQuestionsText() {
 
 async function init() {
   initTheme();
+  loadWeakStats();
+  loadLeaderboard();
+
+  const modeFromQuery = getModeFromQuery();
+  if (modeFromQuery && el.gameMode) {
+    el.gameMode.value = modeFromQuery;
+  }
 
   try {
     const text = await loadQuestionsText();
@@ -377,6 +627,7 @@ async function init() {
 
     renderLectureFilters();
     renderQuestionBank();
+    updateModeUi();
     buildSelection();
 
     el.loadStatus.textContent = `נטענו ${state.allQuestions.length} שאלות מתוך ${state.lectures.length} מצגות.`;
@@ -405,6 +656,8 @@ async function init() {
 
   el.questionCount.addEventListener('input', buildSelection);
   el.lectureFilters.addEventListener('change', buildSelection);
+  el.gameMode?.addEventListener('change', updateModeUi);
+  el.timerMinutes?.addEventListener('input', buildSelection);
 }
 
 init();
