@@ -624,8 +624,12 @@ async function loadQuestionsText() {
   }
 
   const response = await fetch('questions.txt');
-  if (!response.ok) throw new Error('Load failed');
-  return response.text();
+  const text = await response.text();
+  if (typeof text === 'string' && text.trim()) {
+    return text;
+  }
+
+  throw new Error('Questions source is empty');
 }
 
 async function init() {
@@ -655,7 +659,7 @@ async function init() {
     el.submitAnswer.disabled = false;
   } catch (err) {
     console.error(err);
-    el.loadStatus.textContent = 'שגיאה בטעינת מאגר השאלות.';
+    el.loadStatus.textContent = 'שגיאה בטעינת מאגר השאלות. רענן את הדף ונסה שוב.';
     el.startQuiz.disabled = true;
   }
 
