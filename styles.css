@@ -546,6 +546,26 @@ body[data-theme="dark"] .duel-panel {
   background: linear-gradient(135deg, #1a2040 0%, #152a3f 100%);
 }
 
+.duel-settings-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.duel-setting-input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  font-size: 1rem;
+  background: var(--card-bg);
+  color: var(--text);
+  text-align: center;
+}
+.duel-setting-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
 .duel-or-divider {
   display: flex;
   align-items: flex-start;

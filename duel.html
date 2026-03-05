@@ -16,7 +16,7 @@
         <h1>⚔️ דו-קרב בזמן אמת</h1>
         <div class="actions compact">
           <a class="btn" href="game-modes.html">חזרה למצבי משחק</a>
-          <a class="btn" href="index.html">דף הראשי</a>
+          <a class="btn" href="index.html">דף ראשי</a>
           <button id="theme-toggle" class="btn" type="button" aria-label="החלפת מצב תצוגה">🌙 מצב כהה</button>
         </div>
       </div>
@@ -36,7 +36,17 @@
         <!-- Create Room -->
         <div class="duel-panel">
           <h3>🏠 צור חדר חדש</h3>
-          <p class="muted" style="margin:0 0 8px;">דו-קרב של 8 שאלות, 30 שניות לשאלה, ניקוד לפי מהירות.</p>
+          <p class="muted" style="margin:0 0 12px;">הגדר את הדו-קרב ובחר שיעורים. היריב יצטרף עם הקוד שיתווצר.</p>
+          <div class="duel-settings-row">
+            <div class="field">
+              <label for="duel-num-questions">מספר שאלות</label>
+              <input id="duel-num-questions" type="number" min="3" max="20" value="8" class="duel-setting-input" />
+            </div>
+            <div class="field">
+              <label for="duel-time-limit">זמן לשאלה <span class="muted">(מומלץ 30–45 שנ')</span></label>
+              <input id="duel-time-limit" type="number" min="15" max="120" value="30" class="duel-setting-input" />
+            </div>
+          </div>
           <div class="field">
             <p class="label">בחירת שיעורים (ברירת מחדל: הכל)</p>
             <div id="duel-lecture-filters" class="lecture-grid"></div>

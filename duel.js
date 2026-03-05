@@ -21,8 +21,6 @@ const FIREBASE_CONFIG = {
 };
 
 // ── קבועים ──────────────────────────────────────────────────────
-const DUEL_QUESTION_COUNT = 8;    // שאלות קבועות
-const QUESTION_TIME_SEC   = 30;   // שניות לשאלה
 const MAX_POINTS_PER_Q    = 100;  // ניקוד מקסימלי לשאלה
 const THEME_KEY           = 'micro-study-theme';
 
@@ -42,6 +40,8 @@ const ds = {
   displayedChoices:              {},
   currentCorrectLabel:           '',
   currentIndex:                  0,
+  questionCount:                 8,    // set by host at room creation
+  questionTimeSec:               30,   // set by host at room creation
   questionStartTime:             0,     // local timestamp aligned to server
   firebaseTimeDelta:             0,     // server_time - Date.now()
   timerInterval:                 null,
@@ -65,13 +65,15 @@ const du = {
   themeToggle:      document.getElementById('theme-toggle'),
 
   // Lobby
-  lobbySection:     document.getElementById('lobby-section'),
-  playerName:       document.getElementById('player-name'),
-  lectureFilters:   document.getElementById('duel-lecture-filters'),
-  createRoomBtn:    document.getElementById('create-room-btn'),
-  roomCodeInput:    document.getElementById('room-code-input'),
-  joinRoomBtn:      document.getElementById('join-room-btn'),
-  lobbyError:       document.getElementById('lobby-error'),
+  lobbySection:      document.getElementById('lobby-section'),
+  playerName:        document.getElementById('player-name'),
+  numQuestionsInput: document.getElementById('duel-num-questions'),
+  timeLimitInput:    document.getElementById('duel-time-limit'),
+  lectureFilters:    document.getElementById('duel-lecture-filters'),
+  createRoomBtn:     document.getElementById('create-room-btn'),
+  roomCodeInput:     document.getElementById('room-code-input'),
+  joinRoomBtn:       document.getElementById('join-room-btn'),
+  lobbyError:        document.getElementById('lobby-error'),
 
   // Waiting room (before game)
   waitingSection:   document.getElementById('waiting-section'),
@@ -208,9 +210,9 @@ function setTimerArc(fraction) {
 function startQuestionTimer() {
   clearInterval(ds.timerInterval);
   // questionStartTime is server-aligned: set when Firebase pushes questionStartAt
-  const totalMs = QUESTION_TIME_SEC * 1000;
+  const totalMs = ds.questionTimeSec * 1000;
   setTimerArc(1);
-  if (du.timerText) du.timerText.textContent = QUESTION_TIME_SEC;
+  if (du.timerText) du.timerText.textContent = ds.questionTimeSec;
 
   ds.timerInterval = setInterval(() => {
     const elapsed   = Date.now() - ds.questionStartTime;
@@ -380,19 +382,26 @@ async function createRoom() {
   const name = du.playerName?.value.trim();
   if (!name) { showError('אנא הכנס שם לפני יצירת חדר.'); return; }
 
+  const numQ    = Math.round(Number(du.numQuestionsInput?.value) || 8);
+  const timeSec = Math.round(Number(du.timeLimitInput?.value)    || 30);
+  if (numQ < 3 || numQ > 20) { showError('מספר השאלות חייב להיות בין 3 ל-20.'); return; }
+  if (timeSec < 15 || timeSec > 120) { showError('הזמן לשאלה חייב להיות בין 15 ל-120 שניות.'); return; }
+
   const lectureIds = getSelectedLectureIds();
   if (!lectureIds.length) { showError('אנא בחר לפחות שיעור אחד.'); return; }
 
   const pool = shuffle(ds.allQuestions.filter(q => lectureIds.includes(q.lectureId)));
-  if (pool.length < DUEL_QUESTION_COUNT) {
-    showError(`צריך לפחות ${DUEL_QUESTION_COUNT} שאלות. מצאנו ${pool.length} — בחר יותר שיעורים.`);
+  if (pool.length < numQ) {
+    showError(`צריך לפחות ${numQ} שאלות. מצאנו ${pool.length} — בחר יותר שיעורים.`);
     return;
   }
 
-  const selected = pool.slice(0, DUEL_QUESTION_COUNT);
+  const selected = pool.slice(0, numQ);
   ds.playerName        = name;
   ds.role              = 'host';
   ds.selectedQuestions = selected;
+  ds.questionCount     = numQ;
+  ds.questionTimeSec   = timeSec;
 
   const roomId = generateRoomId();
   ds.roomId    = roomId;
@@ -400,9 +409,11 @@ async function createRoom() {
 
   try {
     await ds.roomRef.set({
-      status:      'waiting',
-      hostId:      ds.playerId,
-      questionIds: selected.map(q => q.uniqueId),
+      status:          'waiting',
+      hostId:          ds.playerId,
+      questionCount:   numQ,
+      questionTimeSec: timeSec,
+      questionIds:     selected.map(q => q.uniqueId),
       players: {
         [ds.playerId]: {
           name, role: 'host',
@@ -460,10 +471,12 @@ async function joinRoom() {
 
   // Resolve host info
   const hostId = room.hostId;
-  ds.opponentName = room.players?.[hostId]?.name || 'יריב';
-  ds.playerName   = name;
-  ds.role         = 'guest';
-  ds.roomId       = code;
+  ds.opponentName    = room.players?.[hostId]?.name || 'יריב';
+  ds.playerName      = name;
+  ds.role            = 'guest';
+  ds.roomId          = code;
+  ds.questionCount   = room.questionCount   || 8;
+  ds.questionTimeSec = room.questionTimeSec || 30;
 
   // Resolve questions from local question bank (same uniqueIds as host stored)
   const qMap = new Map(ds.allQuestions.map(q => [q.uniqueId, q]));
@@ -798,7 +811,7 @@ function submitDuelAnswer() {
   ds.myAnswerTime = Date.now() - ds.questionStartTime;
 
   const isCorrect  = chosen === ds.currentCorrectLabel;
-  const earned     = isCorrect ? calcPoints(ds.myAnswerTime, QUESTION_TIME_SEC * 1000) : 0;
+  const earned     = isCorrect ? calcPoints(ds.myAnswerTime, ds.questionTimeSec * 1000) : 0;
   ds.myRoundScore  = earned;
   ds.totalScore   += earned;
 
@@ -837,7 +850,7 @@ function timeoutAnswer() {
   if (ds.answered) return;
   stopTimer();
   ds.answered     = true;
-  ds.myAnswerTime = QUESTION_TIME_SEC * 1000;
+  ds.myAnswerTime = ds.questionTimeSec * 1000;
   ds.myRoundScore = 0;
 
   if (du.submitBtn) du.submitBtn.classList.add('hidden');
@@ -872,7 +885,7 @@ function showFeedbackScreen() {
   const myPts  = ds.myRoundScore;
   const oppPts = ds.oppRoundScore;
   const q      = ds.selectedQuestions[ds.currentIndex];
-  const timedOut = (ds.myAnswerTime >= QUESTION_TIME_SEC * 1000);
+  const timedOut = (ds.myAnswerTime >= ds.questionTimeSec * 1000);
   const isCorrect = ds.myRoundScore > 0;
 
   // Result line
