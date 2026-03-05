@@ -80,6 +80,11 @@
           <div class="duel-player-badge badge-waiting" id="wait-opp-badge">⏳ טרם הצטרף</div>
         </div>
       </div>
+
+      <div class="actions" style="margin-top:20px; justify-content:center;">
+        <button id="ready-btn" class="btn primary hidden" type="button">✅ אני מוכן!</button>
+      </div>
+      <p id="waiting-ready-msg" class="muted hidden" style="text-align:center; margin-top:8px;"></p>
     </section>
 
     <!-- ═══════ SECTION 3: COUNTDOWN ═══════ -->
@@ -146,12 +151,25 @@
 
       <div class="actions">
         <button id="duel-submit-btn" class="btn primary" type="button">בדיקת תשובה</button>
-        <button id="duel-next-btn" class="btn hidden" type="button">לשאלה הבאה ←</button>
       </div>
 
-      <p id="duel-waiting-opp" class="muted hidden" style="text-align:center;">&#x23F3; ממתין שהיריב יענה...</p>
+      <p id="duel-waiting-opp" class="muted hidden" style="text-align:center;">⏳ ממתין שהיריב יענה...</p>
 
       <div id="duel-feedback" class="feedback hidden"></div>
+    </section>
+
+    <!-- ═══════ SECTION 4b: FEEDBACK (between questions) ═══════ -->
+    <section class="card hidden" id="duel-feedback-section">
+      <h2 id="fb-section-title">📊 סיכום שאלה</h2>
+
+      <div id="fb-result"></div>
+      <div id="fb-explanation" class="explanation-block"></div>
+      <div id="fb-round-scores"></div>
+
+      <div class="actions" style="margin-top: 18px; justify-content: center;">
+        <button id="next-confirm-btn" class="btn primary" type="button">אני מוכן לשאלה הבאה →</button>
+      </div>
+      <p id="waiting-next-msg" class="muted hidden" style="text-align:center; margin-top:8px;"></p>
     </section>
 
     <!-- ═══════ SECTION 5: RESULTS ═══════ -->
@@ -172,8 +190,6 @@
           <div class="duel-final-label">נקודות</div>
         </div>
       </div>
-
-      <p id="duel-waiting-final" class="muted hidden" style="text-align:center; padding:12px;">⏳ ממתין שהיריב יסיים...</p>
 
       <div id="duel-result-details" class="muted" style="margin-top:12px;"></div>
 

@@ -1,13 +1,12 @@
 // ════════════════════════════════════════════════════════════════
 //  ⚔️  DUEL MODE  —  Real-time multiplayer via Firebase
 //
-//  חוקים:
-//  • 8 שאלות קבועות
-//  • 30 שניות לשאלה (טיימר עגול חי)
-//  • ניקוד יחסי לפי מהירות: עד 100 נק' לשאלה, 0 אם טועים/נגמר הזמן
-//  • כששניהם ענו → מתקדמים מיד (לא מחכים 30 שניות)
-//  • בכל שאלה: רואים תשובה נכונה + הסבר + ניקוד יחסי
-//  • בסוף: הכרזת מנצח
+//  זרימת משחק:
+//  1. שני שחקנים בחדר ההמתנה → שניהם לוחצים “אני מוכן”
+//  2. ספירה 3-2-1 → שאלה (timeout מסונכרן לפי Firebase timestamp)
+//  3. שניהם ענו (/ נגמר זמן) → מסך פידבק עם ניקוד
+//  4. שניהם לוחצים “הבאה” → ספירה 3-2-1 → שאלה הבאה
+//  5. אחרי 8 שאלות → סיכום סופי
 // ════════════════════════════════════════════════════════════════
 
 const FIREBASE_CONFIG = {
@@ -31,6 +30,7 @@ const THEME_KEY           = 'micro-study-theme';
 const ds = {
   db:                            null,
   roomRef:                       null,
+  roomListener:                  null,
   playerId:                      null,
   opponentId:                    null,
   role:                          null,   // 'host' | 'guest'
@@ -42,7 +42,8 @@ const ds = {
   displayedChoices:              {},
   currentCorrectLabel:           '',
   currentIndex:                  0,
-  questionStartTime:             0,
+  questionStartTime:             0,     // local timestamp aligned to server
+  firebaseTimeDelta:             0,     // server_time - Date.now()
   timerInterval:                 null,
   answered:                      false,
   myAnswerTime:                  null,
@@ -53,7 +54,8 @@ const ds = {
   selfFinished:                  false,
   opponentFinished:              false,
   opponentCurrentAnsweredIndex:  -1,
-  pendingAdvance:                false,
+  oppReadyConfirmed:             false,
+  oppNextConfirmed:              false,
   roomId:                        null,
 };
 
@@ -71,13 +73,15 @@ const du = {
   joinRoomBtn:      document.getElementById('join-room-btn'),
   lobbyError:       document.getElementById('lobby-error'),
 
-  // Waiting
+  // Waiting room (before game)
   waitingSection:   document.getElementById('waiting-section'),
   roomCodeDisplay:  document.getElementById('room-code-display'),
   copyCodeBtn:      document.getElementById('copy-code-btn'),
   waitMeName:       document.getElementById('wait-me-name'),
   waitOppName:      document.getElementById('wait-opp-name'),
   waitOppBadge:     document.getElementById('wait-opp-badge'),
+  readyBtn:         document.getElementById('ready-btn'),
+  waitingReadyMsg:  document.getElementById('waiting-ready-msg'),
 
   // Countdown
   countdownSection: document.getElementById('countdown-section'),
@@ -102,7 +106,14 @@ const du = {
   submitBtn:        document.getElementById('duel-submit-btn'),
   feedback:         document.getElementById('duel-feedback'),
   waitingOppMsg:    document.getElementById('duel-waiting-opp'),
-  nextBtn:          document.getElementById('duel-next-btn'),
+
+  // Feedback screen (between questions)
+  feedbackSection:  document.getElementById('duel-feedback-section'),
+  fbResult:         document.getElementById('fb-result'),
+  fbExplanation:    document.getElementById('fb-explanation'),
+  fbRoundScores:    document.getElementById('fb-round-scores'),
+  nextConfirmBtn:   document.getElementById('next-confirm-btn'),
+  waitingNextMsg:   document.getElementById('waiting-next-msg'),
 
   // Results
   resultSection:    document.getElementById('duel-result-section'),
@@ -113,8 +124,7 @@ const du = {
   finalOppCard:     document.getElementById('final-opp-card'),
   finalOppName:     document.getElementById('final-opp-name'),
   finalOppScore:    document.getElementById('final-opp-score'),
-  waitingFinalMsg:  document.getElementById('duel-waiting-final'),
-  resultDetails:    document.getElementById('duel-result-details'),
+  waitingFinalMsg:  null,  // removed – both finish together via Firebase status\n  resultDetails:    document.getElementById('duel-result-details'),
   playAgainBtn:     document.getElementById('duel-play-again-btn'),
 };
 
@@ -122,7 +132,7 @@ const du = {
 
 const ALL_SECTIONS = () => [
   du.lobbySection, du.waitingSection, du.countdownSection,
-  du.quizSection, du.resultSection,
+  du.quizSection, du.feedbackSection, du.resultSection,
 ];
 
 function showSection(section) {
@@ -197,7 +207,7 @@ function setTimerArc(fraction) {
 
 function startQuestionTimer() {
   clearInterval(ds.timerInterval);
-  ds.questionStartTime = Date.now();
+  // questionStartTime is server-aligned: set when Firebase pushes questionStartAt
   const totalMs = QUESTION_TIME_SEC * 1000;
   setTimerArc(1);
   if (du.timerText) du.timerText.textContent = QUESTION_TIME_SEC;
@@ -399,6 +409,7 @@ async function createRoom() {
           totalScore: 0, currentIndex: 0,
           answeredIndex: -1, answerTimeMs: null, roundScore: null,
           finished: false, connected: true,
+          readyConfirmed: false, nextConfirmed: false,
         },
       },
       createdAt: firebase.database.ServerValue.TIMESTAMP,
@@ -466,16 +477,45 @@ async function joinRoom() {
       totalScore: 0, currentIndex: 0,
       answeredIndex: -1, answerTimeMs: null, roundScore: null,
       finished: false, connected: true,
+      readyConfirmed: false, nextConfirmed: false,
     });
     ds.roomRef.child(`players/${ds.playerId}/connected`).onDisconnect().set(false);
-    await ds.roomRef.update({ status: 'countdown', guestId: ds.playerId });
+    await ds.roomRef.update({ status: 'both_joined', guestId: ds.playerId });
   } catch (e) {
     showError('שגיאה בהצטרפות לחדר.');
     console.error(e); return;
   }
 
-  setStatus(`מצטרף לחדר ${code}...`);
-  startCountdown();
+  // Show ready button immediately for guest
+  if (du.waitMeName)      du.waitMeName.textContent  = name;
+  if (du.waitOppName)     du.waitOppName.textContent = ds.opponentName;
+  if (du.waitOppBadge) {
+    du.waitOppBadge.textContent = '✅ מחובר';
+    du.waitOppBadge.className   = 'duel-player-badge badge-ready';
+  }
+  if (du.roomCodeDisplay) du.roomCodeDisplay.textContent = code;
+  if (du.readyBtn)         du.readyBtn.classList.remove('hidden');
+  showSection(du.waitingSection);
+  setStatus(`הצטרפת לחדר ${code} — לחץ “אני מוכן” כדי להתחיל`);
+
+  // Guest listens for countdown_start triggered by host
+  ds.roomRef.on('value', snapshot => {
+    const room = snapshot.val();
+    if (!room) return;
+    const players = room.players || {};
+    const oppId = Object.keys(players).find(id => id !== ds.playerId);
+    if (oppId && players[oppId]?.readyConfirmed && du.waitingReadyMsg) {
+      ds.oppReadyConfirmed = true;
+      du.waitingReadyMsg.textContent = `${ds.opponentName} מוכן! מחכה לעילה...`;
+    }
+    if (room.status === 'countdown_start') {
+      ds.roomRef.off('value');
+      startCountdown(() => {
+        startDuelQuiz();
+        startRoomListener();
+      });
+    }
+  });
 }
 
 // ── Listen for Opponent (host side, waiting room) ────────────────
@@ -494,31 +534,57 @@ function listenForOpponent() {
         du.waitOppBadge.textContent = '✅ הצטרף!';
         du.waitOppBadge.className   = 'duel-player-badge badge-ready';
       }
+      // Show "I'm ready" button once opponent joined
+      if (du.readyBtn) du.readyBtn.classList.remove('hidden');
+      setStatus('היריב הצטרף! לחץ “אני מוכן” כדי להתחיל');
     }
-    if (room.status === 'countdown') {
+    // Watch for readyConfirmed status updates
+    if (room.status === 'both_joined') {
+      // check if opp already ready
+      const oppId2 = Object.keys(players).find(id => id !== ds.playerId);
+      if (oppId2 && players[oppId2]?.readyConfirmed) {
+        ds.oppReadyConfirmed = true;
+        if (du.waitingReadyMsg) du.waitingReadyMsg.textContent = `${ds.opponentName} מוכן! מחכה לעילה...`;
+      }
+    }
+    if (room.status === 'countdown_start') {
       ds.roomRef.off('value');
-      startCountdown();
+      startCountdown(() => {
+        startDuelQuiz();
+        startRoomListener();
+      });
     }
   });
 }
 
+// ── Ready Button ─────────────────────────────────────────────────
+
+function confirmReady() {
+  if (du.readyBtn) { du.readyBtn.disabled = true; du.readyBtn.textContent = '✅ מוכן!'; }
+  if (du.waitingReadyMsg) {
+    du.waitingReadyMsg.textContent = 'ממתין שהיריב יאשר גם...';
+    du.waitingReadyMsg.classList.remove('hidden');
+  }
+
+  ds.roomRef?.child(`players/${ds.playerId}`).update({ readyConfirmed: true })
+    .then(() => checkBothReady())
+    .catch(e => console.error(e));
+}
+
+async function checkBothReady() {
+  const snap = await ds.roomRef.once('value');
+  const players = snap.val()?.players || {};
+  const allReady = Object.values(players).every(p => p.readyConfirmed);
+  if (allReady && ds.role === 'host') {
+    await ds.roomRef.update({ status: 'countdown_start' });
+  }
+}
+
 // ── Countdown ────────────────────────────────────────────────────
 
-function startCountdown() {
-  if (du.cdMeName) du.cdMeName.textContent = ds.playerName;
+function startCountdown(onDone) {
+  if (du.cdMeName)  du.cdMeName.textContent  = ds.playerName;
   if (du.cdOppName) du.cdOppName.textContent = ds.opponentName || '...';
-
-  // Fetch opponent name if not yet known
-  if (!ds.opponentName && ds.roomRef) {
-    ds.roomRef.once('value').then(snap => {
-      const players = snap.val()?.players || {};
-      const oppId = Object.keys(players).find(id => id !== ds.playerId);
-      if (oppId && players[oppId]?.name) {
-        ds.opponentName = players[oppId].name;
-        if (du.cdOppName) du.cdOppName.textContent = ds.opponentName;
-      }
-    });
-  }
 
   showSection(du.countdownSection);
   setStatus('הדו-קרב מתחיל בעוד...');
@@ -533,7 +599,7 @@ function startCountdown() {
     } else {
       clearInterval(interval);
       if (du.countdownNumber) du.countdownNumber.textContent = '🚀';
-      setTimeout(startDuelQuiz, 700);
+      setTimeout(() => onDone?.(), 700);
     }
   }, 1000);
 }
@@ -546,33 +612,126 @@ function startDuelQuiz() {
   ds.opponentTotalScore         = 0;
   ds.answered                   = false;
   ds.selfFinished               = false;
-  ds.pendingAdvance             = false;
   ds.opponentCurrentAnsweredIndex = -1;
+  ds.oppReadyConfirmed          = false;
+  ds.oppNextConfirmed           = false;
 
   if (du.liveMeName)   du.liveMeName.textContent  = ds.playerName;
   if (du.liveOppName)  du.liveOppName.textContent = ds.opponentName || 'יריב';
   if (du.liveMeScore)  du.liveMeScore.textContent  = '0';
   if (du.liveOppScore) du.liveOppScore.textContent = '0';
 
-  showSection(du.quizSection);
   setStatus('⚔️ דו-קרב מתנהל!');
-  ds.roomRef?.update({ status: 'playing' }).catch(() => {});
-  listenToOpponent();
-  renderDuelQuestion();
+  // host pushes the first questionStartAt; guest will get it via startRoomListener
+  if (ds.role === 'host') {
+    ds.roomRef?.update({
+      status:          'question',
+      questionIndex:   0,
+      questionStartAt: firebase.database.ServerValue.TIMESTAMP,
+    }).catch(() => {});
+  }
 }
 
-// ── Render Question ───────────────────────────────────────────────
+// ── Room-level Listener (drives transitions after quiz starts) ────
 
-function renderDuelQuestion() {
+function startRoomListener() {
+  if (!ds.roomRef) return;
+  ds.roomListener = ds.roomRef.on('value', snapshot => {
+    const room = snapshot.val();
+    if (!room) return;
+
+    const players = snap_players(room);
+    const opp     = players.find(p => p.id !== ds.playerId);
+    if (opp) {
+      ds.opponentId                   = opp.id;
+      ds.opponentName                 = opp.name          || ds.opponentName || 'יריב';
+      ds.opponentTotalScore           = opp.totalScore    || 0;
+      ds.opponentCurrentAnsweredIndex = opp.answeredIndex ?? -1;
+      ds.opponentFinished             = opp.finished      || false;
+      if (opp.answeredIndex === ds.currentIndex) ds.oppRoundScore = opp.roundScore || 0;
+
+      if (du.liveOppScore) du.liveOppScore.textContent = ds.opponentTotalScore;
+
+      // Show badge when opp answers during question phase
+      if (room.status === 'question' && opp.answeredIndex === ds.currentIndex && !ds.answered) {
+        if (du.oppAnsweredBadge) {
+          du.oppAnsweredBadge.textContent = `${ds.opponentName} ענה ✅`;
+          du.oppAnsweredBadge.classList.remove('hidden');
+        }
+      }
+
+      // Both answered → host pushes feedback status
+      if (room.status === 'question' &&
+          ds.answered &&
+          opp.answeredIndex === ds.currentIndex &&
+          ds.role === 'host') {
+        ds.roomRef.update({ status: 'feedback' }).catch(() => {});
+      }
+
+      // nextConfirmed tracking
+      if (opp.nextConfirmed === ds.currentIndex) ds.oppNextConfirmed = true;
+    }
+
+    // ── STATUS TRANSITIONS ──────────────────────────────────────
+    if (room.status === 'question' && room.questionIndex === ds.currentIndex) {
+      // Receive question start timestamp from Firebase (server-aligned timer)
+      if (room.questionStartAt && !ds.quizSection?.classList.contains('shown_q' + ds.currentIndex)) {
+        const serverNow = Date.now() + ds.firebaseTimeDelta;
+        ds.questionStartTime = room.questionStartAt - ds.firebaseTimeDelta; // local equivalent
+        showQuestion();
+      }
+    }
+
+    if (room.status === 'feedback' && !du.feedbackSection?.classList.contains('active-feedback')) {
+      showFeedbackScreen();
+    }
+
+    if (room.status === 'countdown_next') {
+      if (!du.countdownSection?.classList.contains('counting')) {
+        du.countdownSection?.classList.add('counting');
+        startCountdown(() => {
+          du.countdownSection?.classList.remove('counting');
+          ds.currentIndex++;
+          if (ds.currentIndex >= ds.selectedQuestions.length) {
+            finishDuelQuiz();
+          } else {
+            if (ds.role === 'host') {
+              ds.roomRef?.update({
+                status:          'question',
+                questionIndex:   ds.currentIndex,
+                questionStartAt: firebase.database.ServerValue.TIMESTAMP,
+              }).catch(() => {});
+            }
+          }
+        });
+      }
+    }
+
+    if (room.status === 'finished') {
+      if (ds.selfFinished) showFinalResults();
+    }
+  });
+}
+
+function snap_players(room) {
+  return Object.entries(room.players || {}).map(([id, p]) => ({ id, ...p }));
+}
+
+// ── Show Question ─────────────────────────────────────────────────
+
+function showQuestion() {
   const q     = ds.selectedQuestions[ds.currentIndex];
   if (!q) return;
 
   const total = ds.selectedQuestions.length;
   ds.answered          = false;
   ds.myAnswerTime      = null;
-  ds.pendingAdvance    = false;
+  ds.oppNextConfirmed  = false;
   ds.displayedChoices  = {};
   ds.currentCorrectLabel = '';
+
+  // mark so we don't re-render on duplicate firebase events
+  du.quizSection?.classList.add('shown_q' + ds.currentIndex);
 
   // progress bar & header
   if (du.progressBar) du.progressBar.style.width = `${(ds.currentIndex / total) * 100}%`;
@@ -582,8 +741,7 @@ function renderDuelQuestion() {
 
   // reset UI
   if (du.feedback)     { du.feedback.className = 'feedback hidden'; du.feedback.innerHTML = ''; }
-  if (du.nextBtn)      du.nextBtn.classList.add('hidden');
-  if (du.waitingOppMsg) du.waitingOppMsg?.classList.add('hidden');
+  if (du.waitingOppMsg) du.waitingOppMsg.classList.add('hidden');
   if (du.oppAnsweredBadge) { du.oppAnsweredBadge.classList.add('hidden'); du.oppAnsweredBadge.textContent = ''; }
   if (du.submitBtn)    { du.submitBtn.classList.remove('hidden'); du.submitBtn.disabled = false; }
 
@@ -607,14 +765,16 @@ function renderDuelQuestion() {
     du.answersForm?.appendChild(lbl);
   });
 
-  // עדכן Firebase: התחלנו שאלה חדשה
+  // reset player's answer fields in Firebase
   ds.roomRef?.child(`players/${ds.playerId}`).update({
     currentIndex:  ds.currentIndex,
     answeredIndex: ds.currentIndex - 1,
     answerTimeMs:  null,
     roundScore:    null,
+    nextConfirmed: -1,
   }).catch(() => {});
 
+  showSection(du.quizSection);
   startQuestionTimer();
 }
 
@@ -654,15 +814,21 @@ function submitDuelAnswer() {
     inp.disabled = true;
   });
 
-  // push to Firebase
+  // Show waiting message
+  if (du.waitingOppMsg) du.waitingOppMsg.classList.remove('hidden');
+
+  // Push to Firebase (triggers host to check if both answered)
   ds.roomRef?.child(`players/${ds.playerId}`).update({
     totalScore:    ds.totalScore,
     answeredIndex: ds.currentIndex,
     answerTimeMs:  ds.myAnswerTime,
     roundScore:    earned,
+  }).then(() => {
+    // If we are host, check if opp already answered
+    if (ds.role === 'host' && ds.opponentCurrentAnsweredIndex === ds.currentIndex) {
+      ds.roomRef.update({ status: 'feedback' }).catch(() => {});
+    }
   }).catch(() => {});
-
-  showFeedbackAfterAnswer(isCorrect, earned, chosen);
 }
 
 // ── Timeout ───────────────────────────────────────────────────────
@@ -681,94 +847,94 @@ function timeoutAnswer() {
     if (inp.value === ds.currentCorrectLabel) lbl.classList.add('choice-correct');
     inp.disabled = true;
   });
+  if (du.waitingOppMsg) du.waitingOppMsg.classList.remove('hidden');
 
   ds.roomRef?.child(`players/${ds.playerId}`).update({
     answeredIndex: ds.currentIndex,
     answerTimeMs:  ds.myAnswerTime,
     roundScore:    0,
+  }).then(() => {
+    if (ds.role === 'host' && ds.opponentCurrentAnsweredIndex === ds.currentIndex) {
+      ds.roomRef.update({ status: 'feedback' }).catch(() => {});
+    }
   }).catch(() => {});
-
-  showFeedbackAfterAnswer(false, 0, null, true);
 }
 
-// ── Show Feedback ─────────────────────────────────────────────────
+// ── Feedback Screen (shown when status === 'feedback') ───────────
 
-function showFeedbackAfterAnswer(isCorrect, earned, chosen, timedOut = false) {
-  const q = ds.selectedQuestions[ds.currentIndex];
+function showFeedbackScreen() {
+  du.feedbackSection?.classList.add('active-feedback');
+  stopTimer();
+  const titleEl = document.getElementById('fb-section-title');
+  if (titleEl) titleEl.textContent = `📊 סיכום שאלה ${ds.currentIndex + 1} / ${ds.selectedQuestions.length}`;
 
-  let html = timedOut
-    ? `<strong>⏰ נגמר הזמן!</strong>`
-    : isCorrect
-      ? `<strong>✅ נכון!</strong> <span class="round-pts-earned">+${earned} נקודות</span>`
-      : `<strong>❌ לא נכון.</strong> התשובה הנכונה: <strong>${ds.currentCorrectLabel}.</strong> ${ds.displayedChoices[ds.currentCorrectLabel] || ''}`;
-
-  html += `<hr style="margin:10px 0;border-color:var(--border);"><p style="margin:0;">💡 ${q.explanation}</p>`;
-  html += `<div id="round-score-block"></div>`; // יתמלא אחרי שהיריב יענה
-
-  if (du.feedback) {
-    du.feedback.className = (isCorrect && !timedOut) ? 'feedback ok' : 'feedback bad';
-    du.feedback.innerHTML = html;
-    du.feedback.classList.remove('hidden');
-  }
-
-  // בדוק אם הניקוד היחסי כבר ידוע (היריב ענה לפני)
-  tryShowRoundScores();
-  tryAdvance();
-}
-
-// ── ניקוד יחסי לשאלה ─────────────────────────────────────────────
-
-function tryShowRoundScores() {
-  const oppAnsweredThis = (ds.opponentCurrentAnsweredIndex >= ds.currentIndex);
-  if (!ds.answered || !oppAnsweredThis) return; // ממתינים לשניים
-
-  const block = document.getElementById('round-score-block');
-  if (!block || block.dataset.filled) return;
-  block.dataset.filled = '1';
-
+  // Refresh opp score from state
   const myPts  = ds.myRoundScore;
   const oppPts = ds.oppRoundScore;
+  const q      = ds.selectedQuestions[ds.currentIndex];
+  const timedOut = (ds.myAnswerTime >= QUESTION_TIME_SEC * 1000);
+  const isCorrect = ds.myRoundScore > 0;
 
-  block.innerHTML = `
-    <div class="duel-round-scores">
-      <div class="round-score-row">
-        <span class="round-score-name">${ds.playerName}</span>
-        <span class="round-score-pts ${myPts > oppPts ? 'round-winner' : ''}">+${myPts} נק'</span>
-      </div>
-      <div class="round-score-row">
-        <span class="round-score-name">${ds.opponentName}</span>
-        <span class="round-score-pts ${oppPts > myPts ? 'round-winner' : ''}">+${oppPts} נק'</span>
-      </div>
-      <div class="round-score-total">סה"כ: ${ds.playerName} <strong>${ds.totalScore}</strong> | ${ds.opponentName} <strong>${ds.opponentTotalScore}</strong></div>
-    </div>
-  `;
+  // Result line
+  let resultHtml = timedOut
+    ? `<p class="fb-verdict fb-wrong">⏰ נגמר הזמן!</p>`
+    : isCorrect
+      ? `<p class="fb-verdict fb-correct">✅ נכון! <span class="round-pts-earned">+${myPts} נקודות</span></p>`
+      : `<p class="fb-verdict fb-wrong">❌ לא נכון. התשובה הנכונה: <strong>${ds.currentCorrectLabel}.</strong> ${ds.displayedChoices[ds.currentCorrectLabel] || ''}</p>`;
+
+  if (du.fbResult) du.fbResult.innerHTML = resultHtml;
+
+  // Explanation
+  if (du.fbExplanation) du.fbExplanation.innerHTML = `<p>💡 ${q?.explanation || ''}</p>`;
+
+  // Round scores
+  if (du.fbRoundScores) {
+    du.fbRoundScores.innerHTML = `
+      <div class="duel-round-scores">
+        <div class="round-score-row">
+          <span class="round-score-name">${ds.playerName}</span>
+          <span class="round-score-pts ${myPts > oppPts ? 'round-winner' : ''}">+${myPts} נק'</span>
+        </div>
+        <div class="round-score-row">
+          <span class="round-score-name">${ds.opponentName}</span>
+          <span class="round-score-pts ${oppPts > myPts ? 'round-winner' : ''}">+${oppPts} נק'</span>
+        </div>
+        <div class="round-score-total">סה"כ: ${ds.playerName} <strong>${ds.totalScore}</strong> | ${ds.opponentName} <strong>${ds.opponentTotalScore}</strong></div>
+      </div>`;
+  }
+
+  if (du.nextConfirmBtn) { du.nextConfirmBtn.disabled = false; du.nextConfirmBtn.textContent = ds.currentIndex < ds.selectedQuestions.length - 1 ? 'אני מוכן לשאלה הבאה →' : 'אני מוכן לתוצאות הסופיות'; }
+  if (du.waitingNextMsg) du.waitingNextMsg.classList.add('hidden');
+
+  showSection(du.feedbackSection);
 }
 
-function tryAdvance() {
-  const oppAnsweredThis = (ds.opponentCurrentAnsweredIndex >= ds.currentIndex);
-  if (!ds.answered || !oppAnsweredThis) {
-    // מציגים הודעה שאנו מחכים
-    if (ds.answered && du.waitingOppMsg) du.waitingOppMsg?.classList.remove('hidden');
-    ds.pendingAdvance = true;
-    return;
+function confirmNext() {
+  if (du.nextConfirmBtn) { du.nextConfirmBtn.disabled = true; du.nextConfirmBtn.textContent = '✅ מוכן!'; }
+  if (du.waitingNextMsg) {
+    du.waitingNextMsg.textContent = 'ממתין שהיריב יאשר גם...';
+    du.waitingNextMsg.classList.remove('hidden');
   }
-  ds.pendingAdvance = false;
-  if (du.waitingOppMsg) du.waitingOppMsg?.classList.add('hidden');
-  if (du.oppAnsweredBadge) du.oppAnsweredBadge.classList.add('hidden');
 
-  const isLast = ds.currentIndex >= ds.selectedQuestions.length - 1;
-  if (du.nextBtn) {
-    du.nextBtn.textContent = isLast ? '📊 לתוצאות הסופיות' : 'לשאלה הבאה ←';
-    du.nextBtn.classList.remove('hidden');
-  }
+  ds.roomRef?.child(`players/${ds.playerId}`).update({ nextConfirmed: ds.currentIndex })
+    .then(() => checkBothNext())
+    .catch(e => console.error(e));
 }
 
-// ── Next Question ─────────────────────────────────────────────────
-
-function nextDuelQuestion() {
-  ds.currentIndex++;
-  if (ds.currentIndex >= ds.selectedQuestions.length) finishDuelQuiz();
-  else renderDuelQuestion();
+async function checkBothNext() {
+  const snap = await ds.roomRef.once('value');
+  const players = snap.val()?.players || {};
+  const allNext = Object.values(players).every(p => p.nextConfirmed === ds.currentIndex);
+  if (allNext && ds.role === 'host') {
+    const isLast = ds.currentIndex >= ds.selectedQuestions.length - 1;
+    if (isLast) {
+      await ds.roomRef.update({ status: 'finished' });
+      finishDuelQuiz();
+    } else {
+      du.feedbackSection?.classList.remove('active-feedback');
+      await ds.roomRef.update({ status: 'countdown_next' });
+    }
+  }
 }
 
 // ── Finish Quiz ───────────────────────────────────────────────────
@@ -783,69 +949,12 @@ function finishDuelQuiz() {
     finished:     true,
   }).catch(() => {});
 
-  showSection(du.resultSection);
-  if (du.winnerBanner)  { du.winnerBanner.textContent = ''; du.winnerBanner.className = 'duel-winner-banner'; }
-  if (du.finalMeName)   du.finalMeName.textContent   = ds.playerName;
-  if (du.finalMeScore)  du.finalMeScore.textContent  = ds.totalScore;
-  if (du.finalOppName)  du.finalOppName.textContent  = ds.opponentName || 'יריב';
-  if (du.finalOppScore) du.finalOppScore.textContent = ds.opponentTotalScore;
-
-  if (!ds.opponentFinished) {
-    if (du.waitingFinalMsg) du.waitingFinalMsg.classList.remove('hidden');
-    setStatus('סיימת! ממתין שהיריב יסיים...');
-  } else {
-    showFinalResults();
-  }
-}
-
-// ── Listen to Opponent (real-time) ────────────────────────────────
-
-function listenToOpponent() {
-  if (!ds.roomRef) return;
-
-  ds.roomRef.child('players').on('value', snapshot => {
-    const players = snapshot.val();
-    if (!players) return;
-
-    const oppId = Object.keys(players).find(id => id !== ds.playerId);
-    if (!oppId) return;
-
-    const opp = players[oppId];
-    ds.opponentId                       = oppId;
-    ds.opponentName                     = opp.name            || ds.opponentName || 'יריב';
-    ds.opponentTotalScore               = opp.totalScore      || 0;
-    ds.opponentCurrentAnsweredIndex     = opp.answeredIndex   ?? -1;
-    ds.opponentFinished                 = opp.finished        || false;
-    // שמור ניקוד יחסי של היריב לשאלה הנוכחית
-    if (opp.answeredIndex === ds.currentIndex) ds.oppRoundScore = opp.roundScore || 0;
-
-    // scoreboard חי
-    if (du.liveOppScore) du.liveOppScore.textContent = ds.opponentTotalScore;
-
-    // badge "היריב ענה" (כשאנחנו עוד לא ענינו)
-    if (du.oppAnsweredBadge && opp.answeredIndex === ds.currentIndex && !ds.answered) {
-      du.oppAnsweredBadge.textContent = `${ds.opponentName} ענה ✅`;
-      du.oppAnsweredBadge.classList.remove('hidden');
-    }
-
-    // אם שניהם ענו
-    if (ds.answered && opp.answeredIndex === ds.currentIndex) {
-      tryShowRoundScores();
-      tryAdvance();
-    }
-
-    // עדכן תוצאה אם כבר בסיכום
-    if (ds.selfFinished) {
-      if (du.finalOppScore) du.finalOppScore.textContent = ds.opponentTotalScore;
-      if (ds.opponentFinished) showFinalResults();
-    }
-  });
+  showFinalResults();
 }
 
 // ── Final Results ─────────────────────────────────────────────────
 
 function showFinalResults() {
-  if (du.waitingFinalMsg) du.waitingFinalMsg.classList.add('hidden');
   showSection(du.resultSection);
 
   const mine   = ds.totalScore;
@@ -885,7 +994,6 @@ function showFinalResults() {
     `;
   }
 
-  ds.roomRef?.update({ status: 'finished' }).catch(() => {});
   setStatus('⚔️ הדו-קרב הסתיים!');
 }
 
@@ -925,14 +1033,20 @@ function playAgain() {
 
   stopTimer();
   Object.assign(ds, {
-    roomId: null, roomRef: null, role: null,
+    roomId: null, roomRef: null, roomListener: null, role: null,
     opponentId: null, opponentName: '',
     selectedQuestions: [], displayedChoices: {}, currentCorrectLabel: '',
     currentIndex: 0, totalScore: 0, opponentTotalScore: 0,
     myRoundScore: 0, oppRoundScore: 0,
     answered: false, selfFinished: false, opponentFinished: false,
-    pendingAdvance: false, opponentCurrentAnsweredIndex: -1,
+    opponentCurrentAnsweredIndex: -1, oppReadyConfirmed: false, oppNextConfirmed: false,
   });
+
+  // reset class markers
+  du.quizSection?.className.split(' ').filter(c => c.startsWith('shown_q')).forEach(c => du.quizSection.classList.remove(c));
+  du.feedbackSection?.classList.remove('active-feedback');
+  du.countdownSection?.classList.remove('counting');
+  if (du.readyBtn) { du.readyBtn.disabled = false; du.readyBtn.textContent = '✅ אני מוכן!'; }
 
   showSection(du.lobbySection);
   setStatus('הכנס שם ובחר: צור חדר חדש או הצטרף לחדר קיים');
@@ -941,11 +1055,9 @@ function playAgain() {
 // ── Keyboard Shortcuts ────────────────────────────────────────────
 
 function onKeyDown(e) {
-  if (du.quizSection?.classList.contains('hidden')) return;
-  if (e.key === 'Enter') {
-    if (!ds.answered) submitDuelAnswer();
-    else if (!du.nextBtn?.classList.contains('hidden')) nextDuelQuestion();
-  }
+  if (e.key !== 'Enter') return;
+  if (!du.quizSection?.classList.contains('hidden') && !ds.answered) { submitDuelAnswer(); return; }
+  if (!du.feedbackSection?.classList.contains('hidden') && !du.nextConfirmBtn?.disabled) { confirmNext(); }
 }
 
 // ── Init ──────────────────────────────────────────────────────────
@@ -982,8 +1094,9 @@ function init() {
   du.createRoomBtn?.addEventListener('click', createRoom);
   du.joinRoomBtn?.addEventListener('click', joinRoom);
   du.copyCodeBtn?.addEventListener('click', copyRoomCode);
+  du.readyBtn?.addEventListener('click', confirmReady);
   du.submitBtn?.addEventListener('click', submitDuelAnswer);
-  du.nextBtn?.addEventListener('click', nextDuelQuestion);
+  du.nextConfirmBtn?.addEventListener('click', confirmNext);
   du.playAgainBtn?.addEventListener('click', playAgain);
   du.themeToggle?.addEventListener('click', () => {
     applyTheme(document.body.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
