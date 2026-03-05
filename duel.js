@@ -57,6 +57,8 @@ const ds = {
   oppReadyConfirmed:             false,
   oppNextConfirmed:              false,
   roomId:                        null,
+  lectureIds:                    [],    // stored so rematch can pick same lectures
+  rematchRequested:              false,
 };
 
 // ── Element References ───────────────────────────────────────────
@@ -76,10 +78,11 @@ const du = {
   lobbyError:        document.getElementById('lobby-error'),
 
   // Waiting room (before game)
-  waitingSection:   document.getElementById('waiting-section'),
-  roomCodeDisplay:  document.getElementById('room-code-display'),
-  copyCodeBtn:      document.getElementById('copy-code-btn'),
-  waitMeName:       document.getElementById('wait-me-name'),
+  waitingSection:    document.getElementById('waiting-section'),
+  roomCodeDisplay:   document.getElementById('room-code-display'),
+  copyCodeBtn:       document.getElementById('copy-code-btn'),
+  whatsappShareBtn:  document.getElementById('whatsapp-share-btn'),
+  waitMeName:        document.getElementById('wait-me-name'),
   waitOppName:      document.getElementById('wait-opp-name'),
   waitOppBadge:     document.getElementById('wait-opp-badge'),
   readyBtn:         document.getElementById('ready-btn'),
@@ -126,7 +129,10 @@ const du = {
   finalOppCard:     document.getElementById('final-opp-card'),
   finalOppName:     document.getElementById('final-opp-name'),
   finalOppScore:    document.getElementById('final-opp-score'),
-  waitingFinalMsg:  null,  // removed – both finish together via Firebase status\n  resultDetails:    document.getElementById('duel-result-details'),
+  waitingFinalMsg:  null,  // removed – both finish together via Firebase status
+  resultDetails:    document.getElementById('duel-result-details'),
+  rematchBtn:       document.getElementById('duel-rematch-btn'),
+  rematchWaitingMsg:document.getElementById('rematch-waiting-msg'),
   playAgainBtn:     document.getElementById('duel-play-again-btn'),
 };
 
@@ -157,7 +163,26 @@ function clearError() {
   du.lobbyError?.classList.add('hidden');
 }
 
+// טואסט התראות
+function showToast(msg, type = 'info', durationMs = 3000) {
+  let container = document.getElementById('toast-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'toast-container';
+    document.body.appendChild(container);
+  }
+  const t = document.createElement('div');
+  t.className = `toast toast-${type}`;
+  t.textContent = msg;
+  container.appendChild(t);
+  setTimeout(() => {
+    t.classList.add('toast-out');
+    t.addEventListener('animationend', () => t.remove(), { once: true });
+  }, durationMs);
+}
+
 /** Generates a 6-character room code (no 0/O/1/I to avoid confusion) */
+function generateRoomId() {
 function generateRoomId() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let id = '';
@@ -402,6 +427,7 @@ async function createRoom() {
   ds.selectedQuestions = selected;
   ds.questionCount     = numQ;
   ds.questionTimeSec   = timeSec;
+  ds.lectureIds        = lectureIds;
 
   const roomId = generateRoomId();
   ds.roomId    = roomId;
@@ -413,6 +439,7 @@ async function createRoom() {
       hostId:          ds.playerId,
       questionCount:   numQ,
       questionTimeSec: timeSec,
+      lectureIds:      lectureIds,
       questionIds:     selected.map(q => q.uniqueId),
       players: {
         [ds.playerId]: {
@@ -440,8 +467,13 @@ async function createRoom() {
     du.waitOppBadge.textContent = '⏳ טרם הצטרף';
     du.waitOppBadge.className   = 'duel-player-badge badge-waiting';
   }
+  // WhatsApp deep-link share
+  const shareUrl = `${location.origin}${location.pathname}?room=${roomId}`;
+  const waText   = encodeURIComponent(`היריבי! הצטרף/י לדו-קרב מיקרו כלכלה על ידי לחיצה כאן: ${shareUrl}`);
+  if (du.whatsappShareBtn) du.whatsappShareBtn.href = `https://wa.me/?text=${waText}`;
   showSection(du.waitingSection);
   setStatus(`חדר ${roomId} נוצר — שתף את הקוד עם היריב`);
+  showToast(`חדר ${roomId} נוצר בהצלחה ✔`, 'ok');
   listenForOpponent();
 }
 
@@ -455,14 +487,18 @@ async function joinRoom() {
   if (!name) { showError('אנא הכנס שם לפני הצטרפות.'); return; }
   if (code.length !== 6) { showError('קוד החדר חייב להיות בן 6 תווים.'); return; }
 
+  // Loading skeleton on join button
+  if (du.joinRoomBtn) { du.joinRoomBtn.disabled = true; du.joinRoomBtn.textContent = '⏳ מחפש...'; }
   ds.roomRef = ds.db.ref(`rooms/${code}`);
   let snapshot;
   try {
     snapshot = await ds.roomRef.once('value');
   } catch {
+    if (du.joinRoomBtn) { du.joinRoomBtn.disabled = false; du.joinRoomBtn.textContent = '🚀 הצטרף'; }
     showError('שגיאה בחיבור ל-Firebase. בדוק אינטרנט ונסה שוב.');
     return;
   }
+  if (du.joinRoomBtn) { du.joinRoomBtn.disabled = false; du.joinRoomBtn.textContent = '🚀 הצטרף'; }
 
   const room = snapshot.val();
   if (!room)                                     { showError('חדר לא נמצא — בדוק את הקוד ונסה שוב.'); return; }
@@ -477,6 +513,7 @@ async function joinRoom() {
   ds.roomId          = code;
   ds.questionCount   = room.questionCount   || 8;
   ds.questionTimeSec = room.questionTimeSec || 30;
+  ds.lectureIds      = room.lectureIds      || [];
 
   // Resolve questions from local question bank (same uniqueIds as host stored)
   const qMap = new Map(ds.allQuestions.map(q => [q.uniqueId, q]));
@@ -683,6 +720,15 @@ function startRoomListener() {
 
       // nextConfirmed tracking
       if (opp.nextConfirmed === ds.currentIndex) ds.oppNextConfirmed = true;
+
+      // Opponent requested rematch
+      if (opp.rematchReady && ds.rematchRequested && du.rematchWaitingMsg) {
+        du.rematchWaitingMsg.textContent = `${ds.opponentName} אישר! מתחיל סיבוב נוסף...`;
+      }
+      // Host checks if both requested rematch
+      if (opp.rematchReady && ds.rematchRequested && ds.role === 'host') {
+        checkBothRematch();
+      }
     }
 
     // ── STATUS TRANSITIONS ──────────────────────────────────────
@@ -722,6 +768,13 @@ function startRoomListener() {
 
     if (room.status === 'finished') {
       if (ds.selfFinished) showFinalResults();
+    }
+
+    // Rematch: host sets countdown_start again after both request
+    if (room.status === 'countdown_start' && ds.selfFinished) {
+      if (!du.countdownSection?.classList.contains('counting')) {
+        handleRematch(room);
+      }
     }
   });
 }
@@ -972,7 +1025,7 @@ function showFinalResults() {
 
   const mine   = ds.totalScore;
   const theirs = ds.opponentTotalScore;
-  const maxPts = DUEL_QUESTION_COUNT * MAX_POINTS_PER_Q;
+  const maxPts = ds.questionCount * MAX_POINTS_PER_Q;
 
   if (du.finalMeName)   du.finalMeName.textContent   = ds.playerName;
   if (du.finalMeScore)  du.finalMeScore.textContent  = mine;
@@ -1003,7 +1056,7 @@ function showFinalResults() {
     du.resultDetails.innerHTML = `
       <p>🎯 ${ds.playerName}: <strong>${mine}</strong> נקודות (${myPct}% מהמקסימום)</p>
       <p>🎯 ${ds.opponentName || 'יריב'}: <strong>${theirs}</strong> נקודות (${oppPct}% מהמקסימום)</p>
-      <p class="muted" style="font-size:13px;">מקסימום: ${maxPts} נק' (${DUEL_QUESTION_COUNT} שאלות × ${MAX_POINTS_PER_Q} נק')</p>
+      <p class="muted" style="font-size:13px;">מקסימום: ${maxPts} נק' (${ds.questionCount} שאלות × ${MAX_POINTS_PER_Q} נק')</p>
     `;
   }
 
@@ -1033,6 +1086,80 @@ function copyRoomCode() {
         setTimeout(() => { if (du.copyCodeBtn) du.copyCodeBtn.textContent = '📋 העתק קוד'; }, 2000);
       }
     });
+}
+
+// ── Rematch ───────────────────────────────────────────────────────
+
+function requestRematch() {
+  if (ds.rematchRequested) return;
+  ds.rematchRequested = true;
+  if (du.rematchBtn) { du.rematchBtn.disabled = true; du.rematchBtn.textContent = '⏳ ממתין לאישור היריב...'; }
+  if (du.rematchWaitingMsg) { du.rematchWaitingMsg.textContent = 'ממתין שהיריב יאשר גם...'; du.rematchWaitingMsg.classList.remove('hidden'); }
+  ds.roomRef?.child(`players/${ds.playerId}`).update({ rematchReady: true })
+    .then(() => { if (ds.role === 'host') checkBothRematch(); })
+    .catch(e => console.error(e));
+}
+
+async function checkBothRematch() {
+  const snap = await ds.roomRef.once('value');
+  const room = snap.val();
+  if (!room) return;
+  const players = Object.values(room.players || {});
+  if (players.length === 2 && players.every(p => p.rematchReady)) {
+    startRematch(room);
+  }
+}
+
+async function startRematch(room) {
+  const lectureIds = ds.lectureIds.length ? ds.lectureIds
+    : [...new Set(ds.selectedQuestions.map(q => q.lectureId))];
+  const pool  = shuffle(ds.allQuestions.filter(q => lectureIds.includes(q.lectureId)));
+  const newQs = pool.length >= ds.questionCount ? pool.slice(0, ds.questionCount) : pool;
+
+  const updates = {
+    status:          'countdown_start',
+    questionIds:     newQs.map(q => q.uniqueId),
+    questionStartAt: null,
+    questionIndex:   0,
+  };
+  Object.keys(room.players || {}).forEach(pid => {
+    updates[`players/${pid}/totalScore`]     = 0;
+    updates[`players/${pid}/currentIndex`]   = 0;
+    updates[`players/${pid}/answeredIndex`]  = -1;
+    updates[`players/${pid}/answerTimeMs`]   = null;
+    updates[`players/${pid}/roundScore`]     = null;
+    updates[`players/${pid}/finished`]       = false;
+    updates[`players/${pid}/readyConfirmed`] = false;
+    updates[`players/${pid}/nextConfirmed`]  = -1;
+    updates[`players/${pid}/rematchReady`]   = false;
+  });
+  await ds.roomRef.update(updates).catch(e => console.error(e));
+}
+
+function handleRematch(room) {
+  const qMap = new Map(ds.allQuestions.map(q => [q.uniqueId, q]));
+  ds.selectedQuestions = (room.questionIds || []).map(id => qMap.get(id)).filter(Boolean);
+  ds.questionCount     = room.questionCount   || ds.questionCount;
+  ds.questionTimeSec   = room.questionTimeSec || ds.questionTimeSec;
+  ds.selfFinished      = false;
+  ds.rematchRequested  = false;
+  ds.myRoundScore      = 0;
+  ds.oppRoundScore     = 0;
+  ds.opponentCurrentAnsweredIndex = -1;
+  ds.oppReadyConfirmed = false;
+  ds.oppNextConfirmed  = false;
+
+  if (du.quizSection) {
+    [...du.quizSection.classList].filter(c => c.startsWith('shown_q'))
+      .forEach(c => du.quizSection.classList.remove(c));
+  }
+  du.feedbackSection?.classList.remove('active-feedback');
+  du.countdownSection?.classList.remove('counting');
+  if (du.liveMeScore)  du.liveMeScore.textContent  = '0';
+  if (du.liveOppScore) du.liveOppScore.textContent = '0';
+
+  showToast(`🔄 סיבוב נוסף! ${ds.questionCount} שאלות`, 'ok');
+  startCountdown(() => { startDuelQuiz(); });
 }
 
 // ── Play Again ────────────────────────────────────────────────────
@@ -1110,6 +1237,7 @@ function init() {
   du.readyBtn?.addEventListener('click', confirmReady);
   du.submitBtn?.addEventListener('click', submitDuelAnswer);
   du.nextConfirmBtn?.addEventListener('click', confirmNext);
+  du.rematchBtn?.addEventListener('click', requestRematch);
   du.playAgainBtn?.addEventListener('click', playAgain);
   du.themeToggle?.addEventListener('click', () => {
     applyTheme(document.body.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
@@ -1121,6 +1249,14 @@ function init() {
     if (e.key === 'Enter') joinRoom();
   });
   document.addEventListener('keydown', onKeyDown);
+
+  // Deep link: ?room=XXXXXX automatically fills the join field
+  const urlRoom = new URLSearchParams(location.search).get('room');
+  if (urlRoom && urlRoom.length === 6) {
+    if (du.roomCodeInput) du.roomCodeInput.value = urlRoom.toUpperCase();
+    if (du.playerName)    du.playerName.focus();
+    showToast('🎮 קוד חדר זוהה אוטומטית — הכנס שם ולחץ הצטרף!', 'info', 4000);
+  }
 }
 
 document.addEventListener('DOMContentLoaded', init);

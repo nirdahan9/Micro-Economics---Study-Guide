@@ -988,3 +988,161 @@ body[data-theme="dark"] .round-pts-earned {
   background: #14532d;
   color: #4ade80;
 }
+
+/* ══════════════════════════════════════════════════
+   HERO STATS (index.html)
+══════════════════════════════════════════════════ */
+.hero-stats {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px 24px;
+  padding: 14px 20px;
+  background: linear-gradient(135deg, var(--primary) 0%, #6366f1 100%);
+  border: none;
+  border-radius: 14px;
+}
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  color: #fff;
+}
+.stat-num {
+  font-size: 1.7rem;
+  font-weight: 800;
+  line-height: 1;
+}
+.stat-lbl {
+  font-size: 0.75rem;
+  opacity: 0.85;
+  letter-spacing: 0.04em;
+}
+.stat-divider {
+  color: rgba(255,255,255,0.4);
+  font-size: 1.5rem;
+  font-weight: 300;
+}
+.stat-badge {
+  background: rgba(255,255,255,0.18);
+  border: 1.5px solid rgba(255,255,255,0.5);
+  color: #fff;
+  border-radius: 20px;
+  padding: 4px 14px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  backdrop-filter: blur(4px);
+}
+
+/* ══════════════════════════════════════════════════
+   BREADCRUMB NAVIGATION
+══════════════════════════════════════════════════ */
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+.breadcrumb a {
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 500;
+}
+.breadcrumb a:hover { text-decoration: underline; }
+.breadcrumb span { color: var(--muted); }
+.breadcrumb .bc-sep { opacity: 0.5; font-size: 0.9rem; }
+
+/* ══════════════════════════════════════════════════
+   TOAST NOTIFICATIONS
+══════════════════════════════════════════════════ */
+#toast-container {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 9999;
+  pointer-events: none;
+}
+.toast {
+  min-width: 200px;
+  max-width: 380px;
+  padding: 10px 18px;
+  border-radius: 10px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.18);
+  pointer-events: auto;
+  animation: toast-in 0.25s ease forwards;
+  text-align: center;
+}
+.toast.toast-ok   { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+.toast.toast-bad  { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+.toast.toast-info { background: #eff6ff; color: #1e40af; border: 1px solid #93c5fd; }
+body[data-theme="dark"] .toast.toast-ok   { background: #14532d; color: #86efac; border-color: #166534; }
+body[data-theme="dark"] .toast.toast-bad  { background: #450a0a; color: #fca5a5; border-color: #991b1b; }
+body[data-theme="dark"] .toast.toast-info { background: #1e3a5f; color: #93c5fd; border-color: #1e40af; }
+.toast.toast-out { animation: toast-out 0.3s ease forwards; }
+@keyframes toast-in  { from { opacity:0; transform: translateY(12px); } to { opacity:1; transform: translateY(0); } }
+@keyframes toast-out { from { opacity:1; transform: translateY(0);    } to { opacity:0; transform: translateY(12px); } }
+
+/* ══════════════════════════════════════════════════
+   NAV-ITEM HOVER (card lift effect)
+══════════════════════════════════════════════════ */
+.nav-item {
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+  cursor: default;
+}
+.nav-item:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.13);
+}
+body[data-theme="dark"] .nav-item:hover {
+  box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+}
+
+/* ══════════════════════════════════════════════════
+   WHATSAPP SHARE BUTTON
+══════════════════════════════════════════════════ */
+.btn-whatsapp {
+  background: #25d366;
+  color: #fff !important;
+  border-color: #25d366;
+  font-weight: 700;
+}
+.btn-whatsapp:hover { background: #1fb855; border-color: #1fb855; }
+
+/* ══════════════════════════════════════════════════
+   SKELETON LOADER (duel join loading)
+══════════════════════════════════════════════════ */
+.skeleton {
+  background: linear-gradient(90deg, var(--border) 25%, var(--surface) 50%, var(--border) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.2s infinite;
+  border-radius: 6px;
+}
+@keyframes skeleton-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.skeleton-line { height: 14px; margin: 6px 0; }
+.skeleton-line.wide  { width: 80%; }
+.skeleton-line.short { width: 45%; }
+
+/* ══════════════════════════════════════════════════
+   MOBILE: duel panels single column below 640px
+   (already set, adding extra touch targets)
+══════════════════════════════════════════════════ */
+@media (max-width: 640px) {
+  .duel-settings-row { grid-template-columns: 1fr; }
+  .hero-stats { gap: 8px 16px; }
+  .stat-num   { font-size: 1.35rem; }
+}

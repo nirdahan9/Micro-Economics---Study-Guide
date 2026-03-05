@@ -17,6 +17,28 @@
       <p class="status">ברוכים הבאים! כאן תוכלו לתרגל שאלות, לחזק נושאים חלשים ולעבור על כל חומרי הלימוד במקום אחד.</p>
     </header>
 
+    <!-- Stats bar -->
+    <section class="hero-stats" aria-label="סטטיסטיקות">
+      <div class="stat-item">
+        <span class="stat-num" data-target="118">0</span>
+        <span class="stat-lbl">שאלות</span>
+      </div>
+      <div class="stat-divider">·</div>
+      <div class="stat-item">
+        <span class="stat-num" data-target="15">0</span>
+        <span class="stat-lbl">שיעורים</span>
+      </div>
+      <div class="stat-divider">·</div>
+      <div class="stat-item">
+        <span class="stat-num" data-target="8">0</span>
+        <span class="stat-lbl">מצבי משחק</span>
+      </div>
+      <div class="stat-divider">·</div>
+      <div class="stat-item">
+        <span class="stat-badge">⚡ LIVE MULTIPLAYER</span>
+      </div>
+    </section>
+
     <section class="card">
       <h2>מסכים זמינים</h2>
       <div class="nav-grid">
@@ -71,6 +93,20 @@
       btn?.addEventListener('click', function () {
         const current = document.body.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
         applyTheme(current === 'dark' ? 'light' : 'dark');
+      });
+
+      // Animated stat counters
+      document.querySelectorAll('.stat-num[data-target]').forEach(el => {
+        const target = +el.dataset.target;
+        const duration = 900;
+        const start = performance.now();
+        function step(now) {
+          const t = Math.min((now - start) / duration, 1);
+          const ease = 1 - Math.pow(1 - t, 3);
+          el.textContent = Math.round(ease * target);
+          if (t < 1) requestAnimationFrame(step);
+        }
+        requestAnimationFrame(step);
       });
     })();
   </script>

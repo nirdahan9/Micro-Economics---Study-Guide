@@ -9,6 +9,13 @@
 <body data-mode="duel">
   <a class="skip-link" href="#main-content">דלג לתוכן הראשי</a>
   <main class="container" id="main-content">
+    <div id="toast-container" aria-live="polite"></div>
+
+    <nav class="breadcrumb" aria-label="ניווט">
+      <a href="index.html">דף ראשי</a>
+      <span class="bc-sep">›</span>
+      <span>דו-קרב בזמן אמת</span>
+    </nav>
 
     <!-- Header -->
     <header class="card">
@@ -77,7 +84,10 @@
       <div class="duel-room-code-display">
         <p class="muted">שתף את הקוד הזה עם היריב שלך:</p>
         <div id="room-code-display" class="room-code-big"></div>
-        <button id="copy-code-btn" class="btn">📋 העתק קוד</button>
+        <div style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
+          <button id="copy-code-btn" class="btn">📋 העתק קוד</button>
+          <a id="whatsapp-share-btn" class="btn btn-whatsapp" href="#" target="_blank" rel="noopener noreferrer">📱 שתף ב-WhatsApp</a>
+        </div>
       </div>
       <div class="duel-vs-row">
         <div class="duel-player-card">
@@ -203,10 +213,12 @@
 
       <div id="duel-result-details" class="muted" style="margin-top:12px;"></div>
 
-      <div class="actions">
-        <button id="duel-play-again-btn" class="btn primary">🔄 שחק שוב</button>
-        <a class="btn" href="game-modes.html">חזרה למצבי משחק</a>
+      <div class="actions" style="justify-content:center; flex-wrap:wrap;">
+        <button id="duel-rematch-btn" class="btn primary">🔄 שחק שוב מול אותו היריב</button>
+        <button id="duel-play-again-btn" class="btn">🏠 חזרה ללובי</button>
+        <a class="btn" href="game-modes.html">מצבי משחק</a>
       </div>
+      <p id="rematch-waiting-msg" class="muted hidden" style="text-align:center; margin-top:8px;"></p>
     </section>
 
   </main>
