@@ -183,7 +183,6 @@ function showToast(msg, type = 'info', durationMs = 3000) {
 
 /** Generates a 6-character room code (no 0/O/1/I to avoid confusion) */
 function generateRoomId() {
-function generateRoomId() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let id = '';
   for (let i = 0; i < 6; i++) id += chars[Math.floor(Math.random() * chars.length)];
@@ -469,7 +468,8 @@ async function createRoom() {
   }
   // WhatsApp deep-link share
   const shareUrl = `${location.origin}${location.pathname}?room=${roomId}`;
-  const waText   = encodeURIComponent(`היריבי! הצטרף/י לדו-קרב מיקרו כלכלה על ידי לחיצה כאן: ${shareUrl}`);
+  const waText   = encodeURIComponent(`⚔️ אתגר דו-קרב מיקרו כלכלה! לחץ/י כאן כדי להצטרף ישירות לחדר שלי (בלי צורך להקליד קוד):
+${shareUrl}`);
   if (du.whatsappShareBtn) du.whatsappShareBtn.href = `https://wa.me/?text=${waText}`;
   showSection(du.waitingSection);
   setStatus(`חדר ${roomId} נוצר — שתף את הקוד עם היריב`);
@@ -719,7 +719,11 @@ function startRoomListener() {
       }
 
       // nextConfirmed tracking
-      if (opp.nextConfirmed === ds.currentIndex) ds.oppNextConfirmed = true;
+      if (opp.nextConfirmed === ds.currentIndex) {
+        ds.oppNextConfirmed = true;
+        // Host re-checks advance in case host already confirmed and was waiting for opp
+        if (ds.role === 'host') checkBothNext();
+      }
 
       // Opponent requested rematch
       if (opp.rematchReady && ds.rematchRequested && du.rematchWaitingMsg) {
@@ -871,17 +875,19 @@ function submitDuelAnswer() {
   if (du.submitBtn) du.submitBtn.classList.add('hidden');
   if (du.liveMeScore) du.liveMeScore.textContent = ds.totalScore;
 
-  // highlight choices
+  // Disable all choices — DON'T reveal correct/wrong yet.
+  // The correct answer + explanation will appear on the feedback screen
+  // only after BOTH players have answered.
   du.answersForm?.querySelectorAll('label.choice').forEach(lbl => {
     const inp = lbl.querySelector('input');
-    if (!inp) return;
-    if (inp.value === ds.currentCorrectLabel) lbl.classList.add('choice-correct');
-    else if (inp.value === chosen && !isCorrect) lbl.classList.add('choice-wrong');
-    inp.disabled = true;
+    if (inp) inp.disabled = true;
   });
 
   // Show waiting message
-  if (du.waitingOppMsg) du.waitingOppMsg.classList.remove('hidden');
+  if (du.waitingOppMsg) {
+    du.waitingOppMsg.textContent = '⏳ תשובתך נרשמה! ממתין שהיריב יסיים לענות...';
+    du.waitingOppMsg.classList.remove('hidden');
+  }
 
   // Push to Firebase (triggers host to check if both answered)
   ds.roomRef?.child(`players/${ds.playerId}`).update({
@@ -907,13 +913,15 @@ function timeoutAnswer() {
   ds.myRoundScore = 0;
 
   if (du.submitBtn) du.submitBtn.classList.add('hidden');
+  // Disable choices — correct answer revealed on feedback screen after both answered
   du.answersForm?.querySelectorAll('label.choice').forEach(lbl => {
     const inp = lbl.querySelector('input');
-    if (!inp) return;
-    if (inp.value === ds.currentCorrectLabel) lbl.classList.add('choice-correct');
-    inp.disabled = true;
+    if (inp) inp.disabled = true;
   });
-  if (du.waitingOppMsg) du.waitingOppMsg.classList.remove('hidden');
+  if (du.waitingOppMsg) {
+    du.waitingOppMsg.textContent = '⏰ נגמר הזמן! ממתין שהיריב יסיים...';
+    du.waitingOppMsg.classList.remove('hidden');
+  }
 
   ds.roomRef?.child(`players/${ds.playerId}`).update({
     answeredIndex: ds.currentIndex,
@@ -949,6 +957,15 @@ function showFeedbackScreen() {
       : `<p class="fb-verdict fb-wrong">❌ לא נכון. התשובה הנכונה: <strong>${ds.currentCorrectLabel}.</strong> ${ds.displayedChoices[ds.currentCorrectLabel] || ''}</p>`;
 
   if (du.fbResult) du.fbResult.innerHTML = resultHtml;
+
+  // Now highlight choices in quiz section (shown underneath feedback in DOM)
+  // so if user navigates back they see highlighted state
+  du.answersForm?.querySelectorAll('label.choice').forEach(lbl => {
+    const inp = lbl.querySelector('input');
+    if (!inp) return;
+    if (inp.value === ds.currentCorrectLabel) lbl.classList.add('choice-correct');
+    else if (inp.checked && inp.value !== ds.currentCorrectLabel) lbl.classList.add('choice-wrong');
+  });
 
   // Explanation
   if (du.fbExplanation) du.fbExplanation.innerHTML = `<p>💡 ${q?.explanation || ''}</p>`;
