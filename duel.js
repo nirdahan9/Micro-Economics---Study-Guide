@@ -349,7 +349,7 @@ function renderLectureFilters() {
     inp.value = lecture.lectureId;
     inp.checked = true;
     const span = document.createElement('span');
-    span.textContent = `מצגת ${Number(lecture.lectureId)} — ${lecture.lectureTitle}`;
+    span.textContent = `שיעור ${Number(lecture.lectureId)} — ${lecture.lectureTitle}`;
     lbl.appendChild(inp);
     lbl.appendChild(span);
     du.lectureFilters.appendChild(lbl);
@@ -736,7 +736,7 @@ function showQuestion() {
   // progress bar & header
   if (du.progressBar) du.progressBar.style.width = `${(ds.currentIndex / total) * 100}%`;
   if (du.questionNum) du.questionNum.textContent  = `שאלה ${ds.currentIndex + 1} / ${total}`;
-  if (du.questionMeta) du.questionMeta.textContent = `מצגת ${Number(q.lectureId)} — ${q.lectureTitle}`;
+  if (du.questionMeta) du.questionMeta.textContent = `שיעור ${Number(q.lectureId)} — ${q.lectureTitle}`;
   if (du.questionText) du.questionText.textContent = q.text;
 
   // reset UI

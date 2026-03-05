@@ -229,7 +229,7 @@ function renderLectureFilters() {
     input.checked = true;
 
     const text = document.createElement('span');
-    text.textContent = `מצגת ${Number(lecture.lectureId)} - ${lecture.lectureTitle}`;
+    text.textContent = `שיעור ${Number(lecture.lectureId)} - ${lecture.lectureTitle}`;
 
     label.appendChild(input);
     label.appendChild(text);
@@ -245,7 +245,7 @@ function renderQuestionBank() {
   state.allQuestions.forEach((q, idx) => {
     const item = document.createElement('div');
     item.className = 'bank-item';
-    item.textContent = `${idx + 1}. [מצגת ${Number(q.lectureId)} - ${q.lectureTitle}] ${q.text}`;
+    item.textContent = `${idx + 1}. [שיעור ${Number(q.lectureId)} - ${q.lectureTitle}] ${q.text}`;
     el.questionBank.appendChild(item);
   });
 }
@@ -409,7 +409,7 @@ function buildSelection() {
   }
 
   const lectureText = selectedLectures.length
-    ? `מצגת ${selectedLectures.map((id) => Number(id)).join(', ')}`
+    ? `שיעור ${selectedLectures.map((id) => Number(id)).join(', ')}`
     : 'לא נבחרו מצגות';
 
   if (state.mode === 'review-wrong') {
@@ -464,7 +464,7 @@ function renderCurrentQuestion() {
     updateLivesStatus();
   }
 
-  el.questionMeta.textContent = `מצגת ${Number(q.lectureId)} - ${q.lectureTitle}`;
+  el.questionMeta.textContent = `שיעור ${Number(q.lectureId)} - ${q.lectureTitle}`;
   el.questionText.textContent = q.text;
 
   el.answersForm.innerHTML = '';
