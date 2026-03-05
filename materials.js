@@ -48,7 +48,7 @@ function renderStudyFiles() {
   };
 
   function getLectureNumber(fileName = '') {
-    const m = fileName.match(/מצגת\s*(\d+)/);
+    const m = fileName.match(/שיעור\s*(\d+)/);
     return m ? Number(m[1]) : null;
   }
 
