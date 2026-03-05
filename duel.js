@@ -738,7 +738,7 @@ function startRoomListener() {
     // ── STATUS TRANSITIONS ──────────────────────────────────────
     if (room.status === 'question' && room.questionIndex === ds.currentIndex) {
       // Receive question start timestamp from Firebase (server-aligned timer)
-      if (room.questionStartAt && !ds.quizSection?.classList.contains('shown_q' + ds.currentIndex)) {
+      if (room.questionStartAt && !du.quizSection?.classList.contains('shown_q' + ds.currentIndex)) {
         const serverNow = Date.now() + ds.firebaseTimeDelta;
         ds.questionStartTime = room.questionStartAt - ds.firebaseTimeDelta; // local equivalent
         showQuestion();
