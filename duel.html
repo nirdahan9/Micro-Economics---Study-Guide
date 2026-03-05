@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>דו-קרב בזמן אמת - מיקרו כלכלה</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body data-mode="duel">
+  <a class="skip-link" href="#main-content">דלג לתוכן הראשי</a>
+  <main class="container" id="main-content">
+
+    <!-- Header -->
+    <header class="card">
+      <div class="header-row">
+        <h1>⚔️ דו-קרב בזמן אמת</h1>
+        <div class="actions compact">
+          <a class="btn" href="game-modes.html">חזרה למצבי משחק</a>
+          <a class="btn" href="index.html">דף הראשי</a>
+          <button id="theme-toggle" class="btn" type="button" aria-label="החלפת מצב תצוגה">🌙 מצב כהה</button>
+        </div>
+      </div>
+      <p id="duel-status" class="status">הכנס שם ובחר: צור חדר חדש או הצטרף לחדר קיים</p>
+    </header>
+
+    <!-- ═══════ SECTION 1: LOBBY ═══════ -->
+    <section class="card" id="lobby-section">
+      <h2>כניסה לדו-קרב</h2>
+
+      <div class="field">
+        <label for="player-name">השם שלך</label>
+        <input id="player-name" type="text" maxlength="20" placeholder="לדוגמה: דני" autocomplete="off" />
+      </div>
+
+      <div class="duel-panels">
+        <!-- Create Room -->
+        <div class="duel-panel">
+          <h3>🏠 צור חדר חדש</h3>
+          <p class="muted" style="margin:0 0 8px;">דו-קרב של 8 שאלות, 30 שניות לשאלה, ניקוד לפי מהירות.</p>
+          <div class="field">
+            <p class="label">בחירת שיעורים (ברירת מחדל: הכל)</p>
+            <div id="duel-lecture-filters" class="lecture-grid"></div>
+          </div>
+          <button id="create-room-btn" class="btn primary">⚔️ צור חדר</button>
+        </div>
+
+        <div class="duel-or-divider"><span>או</span></div>
+
+        <!-- Join Room -->
+        <div class="duel-panel">
+          <h3>🔗 הצטרף לחדר קיים</h3>
+          <p class="muted" style="margin:0 0 8px;">קבל קוד מהיריב שלך והצטרף לחדר שלו.</p>
+          <div class="field">
+            <label for="room-code-input">קוד חדר (6 תווים)</label>
+            <input id="room-code-input" type="text" maxlength="6" placeholder="ABC123" class="room-code-input" autocomplete="off" />
+          </div>
+          <button id="join-room-btn" class="btn primary">🚀 הצטרף</button>
+        </div>
+      </div>
+
+      <div id="lobby-error" class="feedback bad hidden" style="margin-top: 14px;"></div>
+    </section>
+
+    <!-- ═══════ SECTION 2: WAITING ROOM ═══════ -->
+    <section class="card hidden" id="waiting-section">
+      <h2>⏳ ממתין לשחקן שני</h2>
+      <div class="duel-room-code-display">
+        <p class="muted">שתף את הקוד הזה עם היריב שלך:</p>
+        <div id="room-code-display" class="room-code-big"></div>
+        <button id="copy-code-btn" class="btn">📋 העתק קוד</button>
+      </div>
+      <div class="duel-vs-row">
+        <div class="duel-player-card">
+          <div class="duel-player-name" id="wait-me-name">אתה</div>
+          <div class="duel-player-badge badge-ready">✅ מחובר</div>
+        </div>
+        <div class="duel-vs-label">VS</div>
+        <div class="duel-player-card">
+          <div class="duel-player-name" id="wait-opp-name">ממתין...</div>
+          <div class="duel-player-badge badge-waiting" id="wait-opp-badge">⏳ טרם הצטרף</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════ SECTION 3: COUNTDOWN ═══════ -->
+    <section class="card hidden" id="countdown-section">
+      <h2 style="text-align:center;">🎮 הדו-קרב מתחיל!</h2>
+      <div class="duel-countdown-wrap">
+        <div id="countdown-number" class="duel-countdown-number">3</div>
+      </div>
+      <div class="duel-vs-row">
+        <div class="duel-player-card">
+          <div class="duel-player-name" id="cd-me-name"></div>
+        </div>
+        <div class="duel-vs-label">VS</div>
+        <div class="duel-player-card">
+          <div class="duel-player-name" id="cd-opp-name"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════ SECTION 4: QUIZ ═══════ -->
+    <section class="card hidden" id="duel-quiz-section">
+
+      <!-- Live scoreboard -->
+      <div class="duel-live-scoreboard">
+        <div class="duel-score-card duel-score-me">
+          <div class="duel-score-name" id="live-me-name"></div>
+          <div class="duel-score-num" id="live-me-score">0</div>
+          <div class="duel-score-label">נקודות</div>
+        </div>
+        <div class="duel-live-vs">⚔️</div>
+        <div class="duel-score-card duel-score-opp">
+          <div class="duel-score-name" id="live-opp-name"></div>
+          <div class="duel-score-num" id="live-opp-score">0</div>
+          <div class="duel-score-label">נקודות</div>
+        </div>
+      </div>
+
+      <!-- Timer + progress -->
+      <div class="duel-timer-wrap">
+        <svg viewBox="0 0 100 100" class="duel-timer-svg" aria-hidden="true">
+          <circle cx="50" cy="50" r="40" class="duel-timer-bg"/>
+          <circle cx="50" cy="50" r="40" id="duel-timer-arc" class="duel-timer-arc"
+            stroke-dasharray="251.3" stroke-dashoffset="0"/>
+        </svg>
+        <div id="duel-timer-text" class="duel-timer-text">30</div>
+      </div>
+
+      <!-- Progress bar -->
+      <div class="duel-progress-bar-wrap">
+        <div id="duel-progress-bar" class="duel-progress-bar-fill"></div>
+      </div>
+
+      <div class="quiz-head">
+        <h2>תרגול</h2>
+        <p id="duel-question-num" class="meta"></p>
+      </div>
+
+      <div id="opp-answered-badge" class="duel-opp-badge hidden"></div>
+
+      <div id="duel-question-meta" class="meta"></div>
+      <h3 id="duel-question-text" class="question"></h3>
+
+      <form id="duel-answers-form" class="choices"></form>
+
+      <div class="actions">
+        <button id="duel-submit-btn" class="btn primary" type="button">בדיקת תשובה</button>
+        <button id="duel-next-btn" class="btn hidden" type="button">לשאלה הבאה ←</button>
+      </div>
+
+      <p id="duel-waiting-opp" class="muted hidden" style="text-align:center;">&#x23F3; ממתין שהיריב יענה...</p>
+
+      <div id="duel-feedback" class="feedback hidden"></div>
+    </section>
+
+    <!-- ═══════ SECTION 5: RESULTS ═══════ -->
+    <section class="card hidden" id="duel-result-section">
+      <div id="duel-winner-banner" class="duel-winner-banner"></div>
+      <h2>סיכום הדו-קרב</h2>
+
+      <div class="duel-final-scores">
+        <div class="duel-final-card" id="final-me-card">
+          <div class="duel-final-name" id="final-me-name"></div>
+          <div class="duel-final-num" id="final-me-score"></div>
+          <div class="duel-final-label">נקודות</div>
+        </div>
+        <div class="duel-final-vs">VS</div>
+        <div class="duel-final-card" id="final-opp-card">
+          <div class="duel-final-name" id="final-opp-name"></div>
+          <div class="duel-final-num" id="final-opp-score"></div>
+          <div class="duel-final-label">נקודות</div>
+        </div>
+      </div>
+
+      <p id="duel-waiting-final" class="muted hidden" style="text-align:center; padding:12px;">⏳ ממתין שהיריב יסיים...</p>
+
+      <div id="duel-result-details" class="muted" style="margin-top:12px;"></div>
+
+      <div class="actions">
+        <button id="duel-play-again-btn" class="btn primary">🔄 שחק שוב</button>
+        <a class="btn" href="game-modes.html">חזרה למצבי משחק</a>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Firebase Realtime Database (compat SDK v10) -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
+  <script src="questions-data.js"></script>
+  <script src="duel.js"></script>
+</body>
+</html>
