@@ -1130,6 +1130,7 @@ function handleOpponentDisconnect() {
 // ── Finish Quiz ───────────────────────────────────────────────────
 
 function finishDuelQuiz() {
+  if (ds.selfFinished) return; // guard against double-call (checkBothNext race)
   stopTimer();
   ds.selfFinished = true;
 
@@ -1304,6 +1305,7 @@ function playAgain() {
     myRoundScore: 0, oppRoundScore: 0,
     answered: false, selfFinished: false, opponentFinished: false,
     opponentCurrentAnsweredIndex: -1, oppReadyConfirmed: false, oppNextConfirmed: false,
+    countingNext: false, rematchRequested: false,
   });
 
   // reset class markers
