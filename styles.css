@@ -1616,3 +1616,33 @@ body[data-theme="dark"] #confidence-change-confirm {
   background: linear-gradient(135deg, #1e1630 0%, #1a1e3a 100%);
   color: #a990ff;
 }
+
+/* ── Setup-page lifetime progress bar (inside header card) ── */
+
+.setup-progress-bar-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 8px 0 4px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: linear-gradient(135deg, #f3fbff 0%, #f7f3ff 100%);
+}
+
+body[data-theme="dark"] .setup-progress-bar-wrap {
+  background: linear-gradient(135deg, #1a2f3f 0%, #2a2242 100%);
+}
+
+.setup-progress-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.setup-progress-bar-wrap .progress-bar-track {
+  flex: 1;
+  min-width: 60px;
+}

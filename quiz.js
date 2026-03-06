@@ -15,6 +15,7 @@ const state = {
   quizStartedAt: 0,
   weakStats: {},
   wrongStats: {},
+  lifetimeStats: { answered: 0, correct: 0 },
   displayedChoices: {},
   currentCorrectLabel: '',
   currentConfidenceLevel: '',
@@ -38,6 +39,9 @@ const el = {
   authStatusBar: document.getElementById('auth-status-bar'),
   authUserDisplay: document.getElementById('auth-user-display'),
   logoutBtn: document.getElementById('logout-btn'),
+  setupProgressBarWrap: document.getElementById('setup-progress-bar-wrap'),
+  setupProgressBarFill: document.getElementById('setup-progress-bar-fill'),
+  setupProgressBarText: document.getElementById('setup-progress-bar-text'),
   startQuiz: document.getElementById('start-quiz'),
   resetSetup: document.getElementById('reset-setup'),
   selectionSummary: document.getElementById('selection-summary'),
@@ -305,7 +309,25 @@ function saveWrongStats() {
   localStorage.setItem(getWrongStatsKey(), JSON.stringify(state.wrongStats));
 }
 
-function getModeLabel(mode) {
+const LIFETIME_STATS_KEY_PREFIX = 'micro-study-lifetime-stats-v1';
+
+function getLifetimeStatsKey() {
+  const u = (typeof AUTH !== 'undefined') ? AUTH.currentUser() : null;
+  return `${LIFETIME_STATS_KEY_PREFIX}__${u || 'global'}`;
+}
+
+function loadLifetimeStats() {
+  try {
+    const raw = localStorage.getItem(getLifetimeStatsKey());
+    state.lifetimeStats = raw ? JSON.parse(raw) : { answered: 0, correct: 0 };
+  } catch {
+    state.lifetimeStats = { answered: 0, correct: 0 };
+  }
+}
+
+function saveLifetimeStats() {
+  localStorage.setItem(getLifetimeStatsKey(), JSON.stringify(state.lifetimeStats));
+}
   return MODE_LABELS[mode] || mode;
 }
 
@@ -571,6 +593,14 @@ function submitCurrentAnswer() {
     el.feedback.innerHTML = `<strong>לא נכון.</strong><br>התשובה הנכונה היא: ${state.currentCorrectLabel}. ${state.displayedChoices[state.currentCorrectLabel] || ''}<br><br>הסבר: ${q.explanation}`;
   }
 
+  // Track lifetime accuracy for protected modes
+  if (state.mode === 'weak-first' || state.mode === 'confidence') {
+    state.lifetimeStats.answered += 1;
+    if (isCorrect) state.lifetimeStats.correct += 1;
+    saveLifetimeStats();
+    renderSetupProgressBar();
+  }
+
   state.answered = true;
   el.submitAnswer.disabled = true;
   if (state.mode === 'lives' && state.lives <= 0) {
@@ -626,6 +656,30 @@ function showResults(reason = '') {
 
   el.resultDetails.textContent = `${details.join(' | ')}. ניתן להתחיל תרגול נוסף עם בחירה חדשה של מספר שאלות ושיעורים.`;
 
+}
+
+function renderSetupProgressBar() {
+  if (!el.setupProgressBarWrap) return;
+  const user = (typeof AUTH !== 'undefined') ? AUTH.currentUser() : null;
+  if (!user) {
+    el.setupProgressBarWrap.classList.add('hidden');
+    return;
+  }
+  const { answered, correct } = state.lifetimeStats;
+  el.setupProgressBarWrap.classList.remove('hidden');
+  if (answered === 0) {
+    if (el.setupProgressBarFill) el.setupProgressBarFill.style.width = '0%';
+    if (el.setupProgressBarText) el.setupProgressBarText.textContent = 'עדיין לא ענית על שאלות במצב זה';
+    return;
+  }
+  const pct = Math.round((correct / answered) * 100);
+  if (el.setupProgressBarFill) {
+    el.setupProgressBarFill.style.width = `${pct}%`;
+    el.setupProgressBarFill.className = `progress-bar-fill ${pct >= 80 ? 'good' : pct >= 50 ? 'medium' : 'bad'}`;
+  }
+  if (el.setupProgressBarText) {
+    el.setupProgressBarText.textContent = `סה"כ כל הזמנים: ${correct} מתוך ${answered} נכון (${pct}%)`;
+  }
 }
 
 function updateProgressBar() {
@@ -871,6 +925,8 @@ async function init() {
 
   loadWeakStats();
   loadWrongStats();
+  loadLifetimeStats();
+  renderSetupProgressBar();
 
   try {
     const text = await loadQuestionsText();
