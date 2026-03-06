@@ -511,7 +511,7 @@ async function joinRoom() {
 
   // Resolve host info
   const hostId = room.hostId;
-  ds.opponentName    = room.players?.[hostId]?.name || 'יריב';
+  ds.opponentName    = room.players?.[hostId]?.name || 'שחקן';
   ds.playerName      = name;
   ds.role            = 'guest';
   ds.roomId          = code;
@@ -526,15 +526,21 @@ async function joinRoom() {
   if (!ds.selectedQuestions.length) { showError('שגיאה בטעינת השאלות מהחדר — ייתכן שגרסאות שאלות שונות.'); return; }
 
   try {
-    await ds.roomRef.child(`players/${ds.playerId}`).set({
-      name, role: 'guest',
-      totalScore: 0, currentIndex: 0,
-      answeredIndex: -1, answerTimeMs: null, roundScore: null,
-      finished: false, connected: true,
-      readyConfirmed: false, nextConfirmed: false,
+    // Single atomic write: player data + room status change together.
+    // This eliminates the race window where the listener fires between the two
+    // separate writes and sees a partial state (player exists but guestId not yet set).
+    await ds.roomRef.update({
+      status:  'both_joined',
+      guestId: ds.playerId,
+      [`players/${ds.playerId}`]: {
+        name, role: 'guest',
+        totalScore: 0, currentIndex: 0,
+        answeredIndex: -1, answerTimeMs: null, roundScore: null,
+        finished: false, connected: true,
+        readyConfirmed: false, nextConfirmed: false,
+      },
     });
     ds.roomRef.child(`players/${ds.playerId}/connected`).onDisconnect().set(false);
-    await ds.roomRef.update({ status: 'both_joined', guestId: ds.playerId });
   } catch (e) {
     showError('שגיאה בהצטרפות לחדר.');
     console.error(e); return;
@@ -631,7 +637,7 @@ function listenForOpponent() {
 
     if (oppId && players[oppId]) {
       ds.opponentId   = oppId;
-      ds.opponentName = players[oppId].name || 'יריב';
+      ds.opponentName = players[oppId].name || 'שחקן';
       if (du.waitOppName)  du.waitOppName.textContent = ds.opponentName;
       if (du.waitOppBadge) {
         du.waitOppBadge.textContent = '✅ הצטרף!';
@@ -723,7 +729,7 @@ function startDuelQuiz() {
   ds.oppNextConfirmed           = false;
 
   if (du.liveMeName)   du.liveMeName.textContent  = ds.playerName;
-  if (du.liveOppName)  du.liveOppName.textContent = ds.opponentName || 'יריב';
+  if (du.liveOppName)  du.liveOppName.textContent = ds.opponentName || 'שחקן';
   if (du.liveMeScore)  du.liveMeScore.textContent  = '0';
   if (du.liveOppScore) du.liveOppScore.textContent = '0';
 
@@ -751,7 +757,7 @@ function startRoomListener() {
     const opp     = players.find(p => p.id !== ds.playerId);
     if (opp) {
       ds.opponentId                   = opp.id;
-      ds.opponentName                 = opp.name          || ds.opponentName || 'יריב';
+      ds.opponentName                 = opp.name          || ds.opponentName || 'שחקן';
       ds.opponentTotalScore           = opp.totalScore    || 0;
       ds.opponentCurrentAnsweredIndex = opp.answeredIndex ?? -1;
       ds.opponentFinished             = opp.finished      || false;
@@ -1151,7 +1157,7 @@ function showFinalResults() {
 
   if (du.finalMeName)   du.finalMeName.textContent   = ds.playerName;
   if (du.finalMeScore)  du.finalMeScore.textContent  = mine;
-  if (du.finalOppName)  du.finalOppName.textContent  = ds.opponentName || 'יריב';
+  if (du.finalOppName)  du.finalOppName.textContent  = ds.opponentName || 'שחקן';
   if (du.finalOppScore) du.finalOppScore.textContent = theirs;
 
   du.finalMeCard?.classList.remove('duel-winner-card');
@@ -1177,7 +1183,7 @@ function showFinalResults() {
     const oppPct = Math.round((theirs / maxPts) * 100);
     du.resultDetails.innerHTML = `
       <p>🎯 ${ds.playerName}: <strong>${mine}</strong> נקודות (${myPct}% מהמקסימום)</p>
-      <p>🎯 ${ds.opponentName || 'יריב'}: <strong>${theirs}</strong> נקודות (${oppPct}% מהמקסימום)</p>
+      <p>🎯 ${ds.opponentName || 'שחקן'}: <strong>${theirs}</strong> נקודות (${oppPct}% מהמקסימום)</p>
       <p class="muted" style="font-size:13px;">מקסימום: ${maxPts} נק' (${ds.questionCount} שאלות × ${MAX_POINTS_PER_Q} נק')</p>
     `;
   }
