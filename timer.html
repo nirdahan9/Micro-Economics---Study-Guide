@@ -23,6 +23,8 @@
       <span>טיימר</span>
     </nav>
     <header class="card">
+      <div class="header-row">
+        <h1>⏱️ תרגול עם טיימר</h1>
         <div class="actions compact">
           <a class="btn" href="game-modes.html">חזרה למצבי משחק</a>
           <a class="btn" href="index.html">חזרה לדף ראשי</a>
@@ -35,16 +37,60 @@
     <section class="card" id="setup-section">
       <h2>הגדרות תרגול</h2>
 
+      <!-- Timer type toggle -->
+      <div class="field">
+        <p class="label">סוג טיימר</p>
+        <div class="question-filter-row">
+          <label class="question-filter-option">
+            <input type="radio" name="timer-type" value="total" checked />
+            <span>⏱️ טיימר לכל הסבב <span class="filter-hint">(הזמן רץ עד סוף המשחק)</span></span>
+          </label>
+          <label class="question-filter-option">
+            <input type="radio" name="timer-type" value="per-question" />
+            <span>⏱️ טיימר לשאלה <span class="filter-hint">(כל שאלה מוגבלת בזמן משלה)</span></span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Total timer settings (shown by default) -->
+      <div id="timer-total-settings" class="field">
+        <p class="label">זמן כולל לסבב</p>
+        <div class="time-inputs-row">
+          <label class="time-input-label">
+            <span class="time-input-unit">דקות</span>
+            <input id="timer-total-minutes" type="number" min="0" max="180" value="5" class="time-input" />
+          </label>
+          <span class="time-colon">:</span>
+          <label class="time-input-label">
+            <span class="time-input-unit">שניות</span>
+            <input id="timer-total-seconds" type="number" min="0" max="59" value="0" class="time-input" />
+          </label>
+        </div>
+      </div>
+
+      <!-- Per-question timer settings (hidden by default) -->
+      <div id="timer-per-settings" class="field hidden">
+        <p class="label">זמן לכל שאלה</p>
+        <div class="time-inputs-row">
+          <label class="time-input-label">
+            <span class="time-input-unit">דקות</span>
+            <input id="timer-per-minutes" type="number" min="0" max="10" value="0" class="time-input" />
+          </label>
+          <span class="time-colon">:</span>
+          <label class="time-input-label">
+            <span class="time-input-unit">שניות</span>
+            <input id="timer-per-seconds" type="number" min="5" max="300" value="30" class="time-input" />
+          </label>
+        </div>
+      </div>
+
+      <!-- Question count -->
       <div class="field">
         <label for="question-count">מספר שאלות לתרגול (השאר ריק = כל השאלות)</label>
         <input id="question-count" type="number" min="1" placeholder="לדוגמה: 20" />
       </div>
 
-      <div class="field" id="timer-settings">
-        <label for="timer-seconds">זמן לשאלה (בשניות)</label>
-        <input id="timer-seconds" type="number" min="10" step="5" value="45" />
-      </div>
-
+      <!-- Lecture filters -->
       <div class="field">
         <p class="label">בחירת שיעורים / מצגות (ברירת מחדל: כל המצגות מסומנות)</p>
         <div id="lecture-filters" class="lecture-grid"></div>

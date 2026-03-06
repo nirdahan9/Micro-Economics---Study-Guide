@@ -1646,3 +1646,42 @@ body[data-theme="dark"] .setup-progress-bar-wrap {
   flex: 1;
   min-width: 60px;
 }
+
+/* ═══════════════════════════════════════════════════════
+   TIMER MODE — time inputs row (minutes : seconds)
+   ═══════════════════════════════════════════════════════ */
+
+.time-inputs-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.time-input-label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.time-input-unit {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.time-input {
+  width: 80px;
+}
+
+.time-colon {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--muted);
+  padding-bottom: 4px;
+  line-height: 1;
+  align-self: flex-end;
+}

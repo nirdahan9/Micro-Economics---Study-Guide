@@ -10,7 +10,8 @@ const state = {
   lives: 3,
   timerInterval: null,
   timeRemainingSec: 0,
-  marathonHasTimer: false,
+  timerType: 'total',        // 'total' | 'per-question'
+  perQuestionTimeSec: 30,
   freestyleUnlimited: false,
   quizStartedAt: 0,
   weakStats: {},
@@ -31,9 +32,11 @@ const el = {
   loadStatus: document.getElementById('load-status'),
   lectureFilters: document.getElementById('lecture-filters'),
   questionCount: document.getElementById('question-count'),
-  timerMinutes: document.getElementById('timer-minutes') || document.getElementById('timer-seconds'),
-  timerField: document.getElementById('timer-field') || document.getElementById('timer-settings'),
-  marathonTotalMinutes: document.getElementById('marathon-total-minutes'),
+  timerTypeInputs: document.querySelectorAll('input[name="timer-type"]'),
+  timerTotalMinutes: document.getElementById('timer-total-minutes'),
+  timerTotalSeconds: document.getElementById('timer-total-seconds'),
+  timerPerMinutes: document.getElementById('timer-per-minutes'),
+  timerPerSeconds: document.getElementById('timer-per-seconds'),
   livesCount: document.getElementById('lives-count'),
   questionFilterInputs: document.querySelectorAll('input[name="question-filter"]'),
   authStatusBar: document.getElementById('auth-status-bar'),
@@ -94,7 +97,6 @@ function getWrongStatsKey() {
 
 const MODE_LABELS = {
   freestyle: 'Freestyle',
-  marathon: 'מרתון',
   timer: 'טיימר',
   lives: 'חיים',
   confidence: 'Confidence Mode',
@@ -328,28 +330,18 @@ function loadLifetimeStats() {
 function saveLifetimeStats() {
   localStorage.setItem(getLifetimeStatsKey(), JSON.stringify(state.lifetimeStats));
 }
+
+function getModeLabel(mode) {
   return MODE_LABELS[mode] || mode;
 }
 
 function updateModeUi() {
-  if (el.timerField) {
-    el.timerField.classList.toggle('hidden', state.mode !== 'timer');
-  }
-
   if (el.livesCount && state.mode !== 'lives') {
     el.livesCount.closest('.field')?.classList.add('hidden');
   }
 
   if (el.livesCount && state.mode === 'lives') {
     el.livesCount.closest('.field')?.classList.remove('hidden');
-  }
-
-  if (el.marathonTotalMinutes && state.mode !== 'marathon') {
-    el.marathonTotalMinutes.closest('.field')?.classList.add('hidden');
-  }
-
-  if (el.marathonTotalMinutes && state.mode === 'marathon') {
-    el.marathonTotalMinutes.closest('.field')?.classList.remove('hidden');
   }
 
   if (el.confidenceField) {
@@ -387,9 +379,32 @@ function startTimer() {
     if (state.timeRemainingSec <= 0) {
       state.timeRemainingSec = 0;
       stopTimer();
-      showResults('הזמן הסתיים.');
+      if (state.timerType === 'per-question') {
+        handlePerQuestionTimeout();
+      } else {
+        showResults('הזמן הסתיים.');
+      }
     }
   }, 1000);
+}
+
+function handlePerQuestionTimeout() {
+  if (state.answered) return;
+  const q = state.selectedQuestions[state.currentIndex];
+  if (!q) return;
+
+  state.answered = true;
+  state.answeredCount += 1;
+  state.weakStats[q.uniqueId] = Number(state.weakStats[q.uniqueId] || 0) + 1;
+  saveWeakStats();
+  state.wrongStats[q.uniqueId] = Number(state.wrongStats[q.uniqueId] || 0) + 1;
+  saveWrongStats();
+
+  el.feedback.className = 'feedback bad';
+  el.feedback.innerHTML = `<strong>⏱️ הזמן פג!</strong><br>התשובה הנכונה היא: ${state.currentCorrectLabel}. ${state.displayedChoices[state.currentCorrectLabel] || ''}<br><br>הסבר: ${q.explanation}`;
+  el.submitAnswer.disabled = true;
+  el.nextQuestion.textContent = 'לשאלה הבאה';
+  el.nextQuestion.classList.remove('hidden');
 }
 
 function updateLivesStatus() {
@@ -483,8 +498,7 @@ function renderCurrentQuestion() {
   }
 
   if (el.timerStatus) {
-    const showTimer = state.mode === 'timer' || (state.mode === 'marathon' && state.marathonHasTimer);
-    el.timerStatus.classList.toggle('hidden', !showTimer);
+    el.timerStatus.classList.toggle('hidden', state.mode !== 'timer');
   }
 
   if (el.livesStatus) {
@@ -492,7 +506,12 @@ function renderCurrentQuestion() {
   }
 
   if (state.mode === 'timer') {
-    updateTimerStatus();
+    if (state.timerType === 'per-question') {
+      state.timeRemainingSec = state.perQuestionTimeSec;
+      startTimer();
+    } else {
+      updateTimerStatus();
+    }
   }
 
   if (state.mode === 'lives') {
@@ -540,6 +559,11 @@ function renderCurrentQuestion() {
 
 function submitCurrentAnswer() {
   if (state.answered) return;
+
+  // Stop per-question timer when user submits an answer
+  if (state.mode === 'timer' && state.timerType === 'per-question') {
+    stopTimer();
+  }
 
   const q = state.selectedQuestions[state.currentIndex];
   const checked = el.answersForm.querySelector('input[name="answer"]:checked');
@@ -781,7 +805,6 @@ function startQuiz() {
   state.lives = state.mode === 'lives'
     ? Math.max(1, Number(el.livesCount?.value || 3))
     : 3;
-  state.marathonHasTimer = false;
   state.freestyleUnlimited = state.mode === 'freestyle' && !el.questionCount.value.trim();
   state.confidenceStats = {
     high: { total: 0, correct: 0 },
@@ -794,21 +817,19 @@ function startQuiz() {
   el.quizSection.classList.remove('hidden');
 
   if (state.mode === 'timer') {
-    const timerValue = Number(el.timerMinutes?.value || 5);
-    const usesSeconds = Boolean(document.getElementById('timer-seconds'));
-    state.timeRemainingSec = usesSeconds
-      ? Math.max(1, Math.floor(timerValue))
-      : Math.max(1, Math.floor(timerValue * 60));
-    startTimer();
-  } else if (state.mode === 'marathon') {
-    const totalMinutes = Number(el.marathonTotalMinutes?.value || 0);
-    if (Number.isFinite(totalMinutes) && totalMinutes > 0) {
-      state.timeRemainingSec = Math.max(1, Math.floor(totalMinutes * 60));
-      state.marathonHasTimer = true;
+    const timerTypeVal = [...(el.timerTypeInputs || [])].find((r) => r.checked)?.value || 'total';
+    state.timerType = timerTypeVal;
+    if (timerTypeVal === 'total') {
+      const mins = Number(el.timerTotalMinutes?.value || 0);
+      const secs = Number(el.timerTotalSeconds?.value || 0);
+      state.timeRemainingSec = Math.max(1, mins * 60 + secs);
       startTimer();
     } else {
-      state.timeRemainingSec = 0;
-      stopTimer();
+      const mins = Number(el.timerPerMinutes?.value || 0);
+      const secs = Number(el.timerPerSeconds?.value || 30);
+      state.perQuestionTimeSec = Math.max(5, mins * 60 + secs);
+      state.timeRemainingSec = state.perQuestionTimeSec;
+      // Timer starts per-question inside renderCurrentQuestion
     }
   } else {
     state.timeRemainingSec = 0;
@@ -820,13 +841,10 @@ function startQuiz() {
 
 function resetSetup() {
   el.questionCount.value = '';
-  if (el.timerMinutes) {
-    const usesSeconds = Boolean(document.getElementById('timer-seconds'));
-    el.timerMinutes.value = usesSeconds ? '45' : '5';
-  }
-  if (el.marathonTotalMinutes) {
-    el.marathonTotalMinutes.value = '';
-  }
+  if (el.timerTotalMinutes) el.timerTotalMinutes.value = '5';
+  if (el.timerTotalSeconds) el.timerTotalSeconds.value = '0';
+  if (el.timerPerMinutes) el.timerPerMinutes.value = '0';
+  if (el.timerPerSeconds) el.timerPerSeconds.value = '30';
   if (el.livesCount) {
     el.livesCount.value = '3';
   }
@@ -971,10 +989,21 @@ async function init() {
 
   el.questionCount.addEventListener('input', buildSelection);
   el.lectureFilters.addEventListener('change', buildSelection);
-  el.timerMinutes?.addEventListener('input', buildSelection);
-  el.marathonTotalMinutes?.addEventListener('input', buildSelection);
+  el.timerTotalMinutes?.addEventListener('input', buildSelection);
+  el.timerTotalSeconds?.addEventListener('input', buildSelection);
+  el.timerPerMinutes?.addEventListener('input', buildSelection);
+  el.timerPerSeconds?.addEventListener('input', buildSelection);
   el.livesCount?.addEventListener('input', buildSelection);
   el.questionFilterInputs?.forEach((r) => r.addEventListener('change', buildSelection));
+
+  // Timer type toggle: show/hide matching time-input panel
+  el.timerTypeInputs?.forEach((r) =>
+    r.addEventListener('change', () => {
+      const sel = [...(el.timerTypeInputs || [])].find((i) => i.checked)?.value || 'total';
+      document.getElementById('timer-total-settings')?.classList.toggle('hidden', sel !== 'total');
+      document.getElementById('timer-per-settings')?.classList.toggle('hidden', sel !== 'per-question');
+    })
+  );
 }
 
 init();
