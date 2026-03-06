@@ -56,6 +56,7 @@ const ds = {
   opponentCurrentAnsweredIndex:  -1,
   oppReadyConfirmed:             false,
   oppNextConfirmed:              false,
+  countingNext:                  false, // true while between-question countdown is running
   roomId:                        null,
   lectureIds:                    [],    // stored so rematch can pick same lectures
   rematchRequested:              false,
@@ -753,11 +754,15 @@ function startRoomListener() {
       // Both host AND guest must clear the feedback guard so next question's feedback can show.
       // (checkBothNext only clears it on the host side)
       du.feedbackSection?.classList.remove('active-feedback');
-      if (!du.countdownSection?.classList.contains('counting')) {
+      // Use a JS flag (not DOM class) so the guard can't be bypassed by a Firebase event
+      // firing in the window between classList.remove('counting') and the host pushing status:'question'
+      if (!ds.countingNext) {
+        ds.countingNext = true;
         du.countdownSection?.classList.add('counting');
         startCountdown(() => {
           du.countdownSection?.classList.remove('counting');
           ds.currentIndex++;
+          // Note: ds.countingNext stays true here — cleared by showQuestion() once rendered
           if (ds.currentIndex >= ds.selectedQuestions.length) {
             finishDuelQuiz();
           } else {
@@ -774,7 +779,9 @@ function startRoomListener() {
     }
 
     if (room.status === 'finished') {
-      if (ds.selfFinished) showFinalResults();
+      // finishDuelQuiz() is called directly by host (via checkBothNext) and sets ds.selfFinished=true.
+      // For the guest, this Firebase event is the trigger — must call finishDuelQuiz() here.
+      if (!ds.selfFinished) finishDuelQuiz();
     }
 
     // Rematch: host sets countdown_start again after both request
@@ -796,6 +803,7 @@ function showQuestion() {
   const q     = ds.selectedQuestions[ds.currentIndex];
   if (!q) return;
 
+  ds.countingNext = false; // countdown is done, safe to allow next countdown
   const total = ds.selectedQuestions.length;
   ds.answered          = false;
   ds.myAnswerTime      = null;
