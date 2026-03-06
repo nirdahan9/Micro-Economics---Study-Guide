@@ -552,7 +552,17 @@ async function joinRoom() {
   showSection(du.waitingSection);
   setStatus(`הצטרפת לחדר ${code} — לחץ “אני מוכן” כדי להתחיל`);
 
-  // Guest listens for countdown_start triggered by host
+  attachGuestWaitingListener();
+}
+
+// ── Guest Waiting Listener (shared by joinRoom + rematch) ────────
+
+function attachGuestWaitingListener() {
+  if (ds.waitingListener) {
+    ds.roomRef.off('value', ds.waitingListener);
+    ds.waitingListener = null;
+  }
+
   ds.waitingListener = ds.roomRef.on('value', snapshot => {
     const room = snapshot.val();
     if (!room) return;
@@ -847,11 +857,9 @@ function startRoomListener() {
       if (!ds.selfFinished) finishDuelQuiz();
     }
 
-    // Rematch: host sets countdown_start again after both request
-    if (room.status === 'countdown_start' && ds.selfFinished) {
-      if (!du.countdownSection?.classList.contains('counting')) {
-        handleRematch(room);
-      }
+    // Rematch: host reset room to both_joined — transition both players back to waiting room
+    if (room.status === 'both_joined' && ds.selfFinished) {
+      handleRematchReset(room);
     }
   });
 }
@@ -1242,7 +1250,7 @@ async function startRematch(room) {
   const newQs = pool.length >= ds.questionCount ? pool.slice(0, ds.questionCount) : pool;
 
   const updates = {
-    status:          'countdown_start',
+    status:          'both_joined',   // send both players back to waiting room
     questionIds:     newQs.map(q => q.uniqueId),
     questionStartAt: null,
     questionIndex:   0,
@@ -1261,30 +1269,71 @@ async function startRematch(room) {
   await ds.roomRef.update(updates).catch(e => console.error(e));
 }
 
-function handleRematch(room) {
+function handleRematchReset(room) {
+  // Detach game listener immediately so no further transitions fire
+  if (ds.roomRef && ds.roomListener) {
+    ds.roomRef.off('value', ds.roomListener);
+    ds.roomListener = null;
+  }
+
+  // Load new questions from Firebase
   const qMap = new Map(ds.allQuestions.map(q => [q.uniqueId, q]));
   ds.selectedQuestions = (room.questionIds || []).map(id => qMap.get(id)).filter(Boolean);
   ds.questionCount     = room.questionCount   || ds.questionCount;
   ds.questionTimeSec   = room.questionTimeSec || ds.questionTimeSec;
+
+  // Full game-state reset
+  ds.currentIndex      = 0;
+  ds.totalScore        = 0;
+  ds.opponentTotalScore = 0;
+  ds.answered          = false;
   ds.selfFinished      = false;
-  ds.rematchRequested  = false;
+  ds.opponentFinished  = false;
   ds.myRoundScore      = 0;
   ds.oppRoundScore     = 0;
+  ds.countingNext      = false;
+  ds.rematchRequested  = false;
   ds.opponentCurrentAnsweredIndex = -1;
   ds.oppReadyConfirmed = false;
   ds.oppNextConfirmed  = false;
 
+  // Clean up CSS class guards
   if (du.quizSection) {
     [...du.quizSection.classList].filter(c => c.startsWith('shown_q'))
       .forEach(c => du.quizSection.classList.remove(c));
   }
   du.feedbackSection?.classList.remove('active-feedback');
   du.countdownSection?.classList.remove('counting');
+
+  // Reset scoreboard
   if (du.liveMeScore)  du.liveMeScore.textContent  = '0';
   if (du.liveOppScore) du.liveOppScore.textContent = '0';
 
-  showToast(`🔄 סיבוב נוסף! ${ds.questionCount} שאלות`, 'ok');
-  startCountdown(() => { startDuelQuiz(); });
+  // Restore waiting room UI
+  if (du.waitMeName)  du.waitMeName.textContent  = ds.playerName;
+  if (du.waitOppName) du.waitOppName.textContent = ds.opponentName || 'יריב';
+  if (du.waitOppBadge) {
+    du.waitOppBadge.textContent = '✅ מחובר';
+    du.waitOppBadge.className   = 'duel-player-badge badge-ready';
+  }
+  if (du.roomCodeDisplay) du.roomCodeDisplay.textContent = ds.roomId;
+  if (du.readyBtn) {
+    du.readyBtn.disabled    = false;
+    du.readyBtn.textContent = '✅ אני מוכן!';
+    du.readyBtn.classList.remove('hidden');
+  }
+  if (du.waitingReadyMsg) { du.waitingReadyMsg.textContent = ''; du.waitingReadyMsg.classList.add('hidden'); }
+
+  showSection(du.waitingSection);
+  showToast(`🔄 סיבוב נוסף — ${ds.questionCount} שאלות! לחץ "אני מוכן" להתחלה`, 'ok', 4000);
+  setStatus('סיבוב נוסף — לחץ "אני מוכן" להתחיל');
+
+  // Re-attach appropriate waiting-room listener
+  if (ds.role === 'host') {
+    listenForOpponent();
+  } else {
+    attachGuestWaitingListener();
+  }
 }
 
 // ── Play Again ────────────────────────────────────────────────────
