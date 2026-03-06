@@ -1250,6 +1250,10 @@ body[data-theme="dark"] .mp-live-leaderboard {
 body[data-theme="dark"] .mp-lb-row.mp-lb-me {
   background: rgba(99, 102, 241, 0.2);
 }
+.mp-lb-row.mp-lb-disconnected {
+  opacity: 0.45;
+  text-decoration: line-through;
+}
 .mp-lb-rank {
   width: 18px;
   text-align: center;

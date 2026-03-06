@@ -354,16 +354,38 @@ function mpRenderWaitingPlayerList(players) {
 function mpRenderLiveLeaderboard() {
   if (!mu.liveLeaderboard) return;
   const all = [
-    { name: ms.playerName, score: ms.totalScore, isMe: true },
-    ...Object.values(ms.opponents).map(o => ({ name: o.name, score: o.totalScore || 0, isMe: false })),
+    {
+      name: ms.playerName,
+      score: ms.totalScore,
+      isMe: true,
+      answered: ms.answered,
+      connected: true,
+    },
+    ...Object.values(ms.opponents).map(o => ({
+      name: o.name,
+      score: o.totalScore || 0,
+      isMe: false,
+      answered: (o.answeredIndex ?? -1) >= ms.currentIndex,
+      connected: o.connected !== false,
+    })),
   ].sort((a, b) => b.score - a.score);
 
-  mu.liveLeaderboard.innerHTML = all.map((p, i) => `
-    <div class="mp-lb-row ${p.isMe ? 'mp-lb-me' : ''}">
+  mu.liveLeaderboard.innerHTML = all.map((p, i) => {
+    let statusTag = '';
+    if (!p.connected) {
+      statusTag = ' <span style="font-size:11px; opacity:0.6;">(התנתק)</span>';
+    } else if (p.answered) {
+      statusTag = ' <span style="font-size:12px;">✅</span>';
+    } else {
+      statusTag = ' <span style="font-size:12px; opacity:0.5;">⏳</span>';
+    }
+    return `
+    <div class="mp-lb-row ${p.isMe ? 'mp-lb-me' : ''}${!p.connected ? ' mp-lb-disconnected' : ''}">
       <span class="mp-lb-rank">${i + 1}</span>
-      <span class="mp-lb-name">${p.name}${p.isMe ? ' ★' : ''}</span>
+      <span class="mp-lb-name">${p.name}${p.isMe ? ' ★' : ''}${statusTag}</span>
       <span class="mp-lb-score">${p.score}</span>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 // ── Create Room ──────────────────────────────────────────────────
@@ -465,7 +487,8 @@ async function mpJoinRoom() {
 
   const activePlayers = Object.values(room.players || {}).filter(p => p.connected !== false);
   if (activePlayers.length >= MAX_PLAYERS_MP) { mpShowError(`החדר מלא — כבר ${MAX_PLAYERS_MP} שחקנים.`); return; }
-  if (room.players?.[ms.playerId]) { mpShowError('אתה כבר בחדר הזה.'); return; }
+  // איפשר להצטרף מחדש אם השחקן יצא (connected === false)
+  if (room.players?.[ms.playerId] && room.players[ms.playerId].connected !== false) { mpShowError('אתה כבר בחדר הזה.'); return; }
 
   ms.playerName      = name;
   ms.role            = 'player';
@@ -660,18 +683,9 @@ function mpStartRoomListener() {
       }
     }
 
-    // Show "others answered" badge
-    if (room.status === 'question' && ms.answered) {
-      const othersAnswered = allPlayers.filter(([id, p]) =>
-        id !== ms.playerId && (p.answeredIndex ?? -1) >= ms.currentIndex && p.connected !== false
-      ).length;
-      const totalOthers = allPlayers.filter(([id, p]) =>
-        id !== ms.playerId && p.connected !== false
-      ).length;
-      if (mu.othersAnsweredBadge) {
-        mu.othersAnsweredBadge.textContent = `${othersAnswered}/${totalOthers} ענו ✅`;
-        mu.othersAnsweredBadge.classList.remove('hidden');
-      }
+    // עדכון סטאטוס ענייה בלוח התוצאות החי
+    if (room.status === 'question') {
+      mpRenderLiveLeaderboard();
     }
 
     // Host: check if all answered
