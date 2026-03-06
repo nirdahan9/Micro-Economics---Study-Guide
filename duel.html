@@ -39,40 +39,40 @@
         <input id="player-name" type="text" maxlength="20" placeholder="לדוגמה: דני" autocomplete="off" />
       </div>
 
-      <div class="duel-panels">
-        <!-- Create Room -->
-        <div class="duel-panel">
-          <h3>🏠 צור חדר חדש</h3>
-          <p class="muted" style="margin:0 0 12px;">הגדר את הדו-קרב ובחר שיעורים. היריב יצטרף עם הקוד שיתווצר.</p>
-          <div class="duel-settings-row">
-            <div class="field">
-              <label for="duel-num-questions">מספר שאלות</label>
-              <input id="duel-num-questions" type="number" min="3" max="20" value="8" class="duel-setting-input" />
-            </div>
-            <div class="field">
-              <label for="duel-time-limit">זמן לשאלה <span class="muted">(מומלץ 30–45 שנ')</span></label>
-              <input id="duel-time-limit" type="number" min="15" max="120" value="30" class="duel-setting-input" />
-            </div>
+      <!-- Tab Toggle -->
+      <div class="lobby-tabs" role="tablist">
+        <button class="lobby-tab active" id="tab-create" role="tab" aria-selected="true"  aria-controls="panel-create" type="button">🏠 צור חדר חדש</button>
+        <button class="lobby-tab"        id="tab-join"   role="tab" aria-selected="false" aria-controls="panel-join"   type="button">🔗 הצטרף לחדר</button>
+      </div>
+
+      <!-- Create Room Panel -->
+      <div class="lobby-tab-panel" id="panel-create" role="tabpanel" aria-labelledby="tab-create">
+        <p class="muted" style="margin:0 0 12px;">הגדר את הדו-קרב ובחר שיעורים. היריב יצטרף עם הקוד שיתווצר.</p>
+        <div class="duel-settings-row">
+          <div class="field">
+            <label for="duel-num-questions">מספר שאלות</label>
+            <input id="duel-num-questions" type="number" min="3" max="20" value="8" class="duel-setting-input" />
           </div>
           <div class="field">
-            <p class="label">בחירת שיעורים (ברירת מחדל: הכל)</p>
-            <div id="duel-lecture-filters" class="lecture-grid"></div>
+            <label for="duel-time-limit">זמן לשאלה <span class="muted">(מומלץ 30–45 שנ')</span></label>
+            <input id="duel-time-limit" type="number" min="15" max="120" value="30" class="duel-setting-input" />
           </div>
-          <button id="create-room-btn" class="btn primary">⚔️ צור חדר</button>
         </div>
-
-        <div class="duel-or-divider"><span>או</span></div>
-
-        <!-- Join Room -->
-        <div class="duel-panel">
-          <h3>🔗 הצטרף לחדר קיים</h3>
-          <p class="muted" style="margin:0 0 8px;">קבל קוד מהיריב שלך והצטרף לחדר שלו.</p>
-          <div class="field">
-            <label for="room-code-input">קוד חדר (6 תווים)</label>
-            <input id="room-code-input" type="text" maxlength="6" placeholder="ABC123" class="room-code-input" autocomplete="off" />
-          </div>
-          <button id="join-room-btn" class="btn primary">🚀 הצטרף</button>
+        <div class="field">
+          <p class="label">בחירת שיעורים (ברירת מחדל: הכל)</p>
+          <div id="duel-lecture-filters" class="lecture-grid"></div>
         </div>
+        <button id="create-room-btn" class="btn primary">⚔️ צור חדר</button>
+      </div>
+
+      <!-- Join Room Panel -->
+      <div class="lobby-tab-panel hidden" id="panel-join" role="tabpanel" aria-labelledby="tab-join">
+        <p class="muted" style="margin:0 0 8px;">קבל קוד מהיריב שלך והצטרף לחדר שלו.</p>
+        <div class="field">
+          <label for="room-code-input">קוד חדר (6 תווים)</label>
+          <input id="room-code-input" type="text" maxlength="6" placeholder="ABC123" class="room-code-input" autocomplete="off" />
+        </div>
+        <button id="join-room-btn" class="btn primary">🚀 הצטרף</button>
       </div>
 
       <div id="lobby-error" class="feedback bad hidden" style="margin-top: 14px;"></div>

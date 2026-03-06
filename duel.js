@@ -1278,11 +1278,31 @@ function init() {
   });
   document.addEventListener('keydown', onKeyDown);
 
-  // Deep link: ?room=XXXXXX automatically fills the join field
+  // Lobby tab toggle
+  const tabCreate   = document.getElementById('tab-create');
+  const tabJoin     = document.getElementById('tab-join');
+  const panelCreate = document.getElementById('panel-create');
+  const panelJoin   = document.getElementById('panel-join');
+
+  function switchTab(tab) {
+    const isCreate = (tab === 'create');
+    tabCreate.classList.toggle('active', isCreate);
+    tabJoin.classList.toggle('active', !isCreate);
+    tabCreate.setAttribute('aria-selected', isCreate);
+    tabJoin.setAttribute('aria-selected', !isCreate);
+    panelCreate.classList.toggle('hidden', !isCreate);
+    panelJoin.classList.toggle('hidden', isCreate);
+  }
+
+  tabCreate?.addEventListener('click', () => switchTab('create'));
+  tabJoin?.addEventListener('click',   () => switchTab('join'));
+
+  // Deep link: ?room=XXXXXX automatically fills the join field and switches to join tab
   const urlRoom = new URLSearchParams(location.search).get('room');
   if (urlRoom && urlRoom.length === 6) {
     if (du.roomCodeInput) du.roomCodeInput.value = urlRoom.toUpperCase();
-    if (du.playerName)    du.playerName.focus();
+    switchTab('join');
+    if (du.playerName) du.playerName.focus();
     showToast('🎮 קוד חדר זוהה אוטומטית — הכנס שם ולחץ הצטרף!', 'info', 4000);
   }
 }
