@@ -750,6 +750,9 @@ function startRoomListener() {
     }
 
     if (room.status === 'countdown_next') {
+      // Both host AND guest must clear the feedback guard so next question's feedback can show.
+      // (checkBothNext only clears it on the host side)
+      du.feedbackSection?.classList.remove('active-feedback');
       if (!du.countdownSection?.classList.contains('counting')) {
         du.countdownSection?.classList.add('counting');
         startCountdown(() => {
