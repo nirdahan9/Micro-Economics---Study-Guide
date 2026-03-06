@@ -383,9 +383,9 @@ async function mpCreateRoom() {
 
   try {
     await ms.roomRef.set({
-      type:            'multiplayer',
       status:          'waiting',
       hostId:          ms.playerId,
+      maxPlayers:      MAX_PLAYERS_MP,
       questionCount:   numQ,
       questionTimeSec: timeSec,
       lectureIds,
@@ -396,12 +396,12 @@ async function mpCreateRoom() {
           totalScore: 0, currentIndex: 0,
           answeredIndex: -1, answerTimeMs: null, roundScore: null,
           finished: false, connected: true,
-          readyConfirmed: false, nextConfirmed: -1,
+          readyConfirmed: false, nextConfirmed: false,
         },
       },
       createdAt: firebase.database.ServerValue.TIMESTAMP,
     });
-  } catch (e) { mpShowError('שגיאה ביצירת החדר. בדוק אינטרנט ונסה שוב.'); console.error(e); return; }
+  } catch (e) { mpShowError('שגיאה ביצירת החדר: ' + (e?.message || e?.code || JSON.stringify(e))); console.error(e); return; }
 
   ms.roomRef.child(`players/${ms.playerId}/connected`).onDisconnect().set(false);
   // Auto-delete after 60 minutes
@@ -445,9 +445,9 @@ async function mpJoinRoom() {
   if (mu.joinRoomBtn) { mu.joinRoomBtn.disabled = false; mu.joinRoomBtn.textContent = '🚀 הצטרף'; }
 
   const room = snapshot.val();
-  if (!room)                    { mpShowError('חדר לא נמצא — בדוק את הקוד ונסה שוב.'); return; }
-  if (room.type !== 'multiplayer') { mpShowError('הקוד הזה שייך לדו-קרב, לא למשחק קבוצתי.'); return; }
-  if (room.status !== 'waiting') { mpShowError('החדר כבר התחיל או הסתיים.'); return; }
+  if (!room)                     { mpShowError('חדר לא נמצא — בדוק את הקוד ונסה שוב.'); return; }
+  if (!room.maxPlayers)           { mpShowError('הקוד הזה שייך לדו-קרב, לא למשחק קבוצתי.'); return; }
+  if (room.status !== 'waiting')  { mpShowError('החדר כבר התחיל או הסתיים.'); return; }
 
   const activePlayers = Object.values(room.players || {}).filter(p => p.connected !== false);
   if (activePlayers.length >= MAX_PLAYERS_MP) { mpShowError(`החדר מלא — כבר ${MAX_PLAYERS_MP} שחקנים.`); return; }
@@ -472,7 +472,7 @@ async function mpJoinRoom() {
         totalScore: 0, currentIndex: 0,
         answeredIndex: -1, answerTimeMs: null, roundScore: null,
         finished: false, connected: true,
-        readyConfirmed: false, nextConfirmed: -1,
+        readyConfirmed: false, nextConfirmed: false,
       },
     });
     ms.roomRef.child(`players/${ms.playerId}/connected`).onDisconnect().set(false);
