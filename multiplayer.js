@@ -22,7 +22,7 @@ const FIREBASE_CONFIG_MP = {
 // ── קבועים ──────────────────────────────────────────────────────
 const MAX_POINTS_MP   = 100;
 const MAX_PLAYERS_MP  = 6;
-const MP_ROOMS_PATH   = 'mprooms';
+const MP_ROOMS_PATH   = 'rooms';
 const MP_THEME_KEY    = 'micro-study-theme';
 
 // ── State ────────────────────────────────────────────────────────
@@ -303,10 +303,8 @@ function mpGetSelectedLectureIds() {
 // ── Firebase ─────────────────────────────────────────────────────
 function mpInitFirebase() {
   try {
-    // Use named app 'mp' to avoid conflicts if duel page is also open
-    const existing = firebase.apps.find(a => a.name === 'mp');
-    const app = existing || firebase.initializeApp(FIREBASE_CONFIG_MP, 'mp');
-    ms.db = app.database();
+    if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG_MP);
+    ms.db = firebase.database();
     return true;
   } catch (e) { console.error('Firebase init error:', e); return false; }
 }
