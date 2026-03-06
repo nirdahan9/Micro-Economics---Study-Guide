@@ -7,6 +7,13 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body data-mode="weak-first">
+  <script>
+    (function(){
+      var t = localStorage.getItem('micro-study-theme');
+      if (!t) t = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+      document.body.setAttribute('data-theme', t);
+    })();
+  </script>
   <main class="container" id="main-content">
     <nav class="breadcrumb" aria-label="ניווט">
       <a href="index.html">דף ראשי</a>
