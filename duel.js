@@ -29,6 +29,7 @@ const ds = {
   db:                            null,
   roomRef:                       null,
   roomListener:                  null,
+  waitingListener:               null, // listener reference for the pre-game waiting room
   playerId:                      null,
   opponentId:                    null,
   role:                          null,   // 'host' | 'guest'
@@ -504,7 +505,9 @@ async function joinRoom() {
   const room = snapshot.val();
   if (!room)                                     { showError('חדר לא נמצא — בדוק את הקוד ונסה שוב.'); return; }
   if (room.status !== 'waiting')                 { showError('החדר כבר התחיל או הסתיים.'); return; }
-  if (Object.keys(room.players || {}).length >= 2) { showError('החדר מלא — יש כבר שני שחקנים.'); return; }
+  // Count only connected (or never-disconnected) players to allow re-join after disconnect
+  const activePlayers = Object.values(room.players || {}).filter(p => p.connected !== false);
+  if (activePlayers.length >= 2) { showError('החדר מלא — יש כבר שני שחקנים.'); return; }
 
   // Resolve host info
   const hostId = room.hostId;
@@ -550,7 +553,7 @@ async function joinRoom() {
   setStatus(`הצטרפת לחדר ${code} — לחץ “אני מוכן” כדי להתחיל`);
 
   // Guest listens for countdown_start triggered by host
-  ds.roomRef.on('value', snapshot => {
+  ds.waitingListener = ds.roomRef.on('value', snapshot => {
     const room = snapshot.val();
     if (!room) return;
     const players = room.players || {};
@@ -558,7 +561,8 @@ async function joinRoom() {
 
     // Host disconnected in waiting room
     if (oppId && players[oppId]?.connected === false) {
-      ds.roomRef.off('value');
+      ds.roomRef.off('value', ds.waitingListener);
+      ds.waitingListener = null;
       showSection(du.lobbySection);
       showError(`${ds.opponentName || 'המארח'} התנתק. החדר נסגר.`);
       return;
@@ -569,7 +573,8 @@ async function joinRoom() {
       du.waitingReadyMsg.textContent = `${ds.opponentName} מוכן! מחכה לעילה...`;
     }
     if (room.status === 'countdown_start') {
-      ds.roomRef.off('value');
+      ds.roomRef.off('value', ds.waitingListener);
+      ds.waitingListener = null;
       startCountdown(() => {
         startDuelQuiz();
         startRoomListener();
@@ -581,7 +586,13 @@ async function joinRoom() {
 // ── Listen for Opponent (host side, waiting room) ────────────────
 
 function listenForOpponent() {
-  ds.roomRef.on('value', snapshot => {
+  // Always detach any previous waiting-room listener before adding a new one
+  if (ds.waitingListener) {
+    ds.roomRef.off('value', ds.waitingListener);
+    ds.waitingListener = null;
+  }
+
+  ds.waitingListener = ds.roomRef.on('value', snapshot => {
     const room = snapshot.val();
     if (!room) return;
     const players = room.players || {};
@@ -589,7 +600,8 @@ function listenForOpponent() {
 
     // Guest disconnected in waiting room
     if (oppId && players[oppId]?.connected === false) {
-      ds.roomRef.off('value');
+      ds.roomRef.off('value', ds.waitingListener);
+      ds.waitingListener = null;
       // Reset waiting room UI
       if (du.waitOppName)  du.waitOppName.textContent  = 'ממתין...';
       if (du.waitOppBadge) {
