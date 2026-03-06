@@ -704,6 +704,13 @@ function startRoomListener() {
       ds.opponentFinished             = opp.finished      || false;
       if (opp.answeredIndex === ds.currentIndex) ds.oppRoundScore = opp.roundScore || 0;
 
+      // Opponent disconnect detection — only during active game (not lobby/waiting)
+      const activeStatuses = ['question', 'feedback', 'countdown_next', 'countdown_start', 'both_joined'];
+      if (opp.connected === false && activeStatuses.includes(room.status) && !ds.selfFinished) {
+        handleOpponentDisconnect();
+        return;
+      }
+
       // Only update live scoreboard outside question phase (avoid spoiling correctness)
       if (room.status !== 'question') {
         if (du.liveOppScore) du.liveOppScore.textContent = ds.opponentTotalScore;
@@ -1046,6 +1053,36 @@ async function checkBothNext() {
       await ds.roomRef.update({ status: 'countdown_next' });
     }
   }
+}
+
+// ── Opponent Disconnected ─────────────────────────────────────
+
+function handleOpponentDisconnect() {
+  if (ds.selfFinished) return; // already done
+  stopTimer();
+  ds.selfFinished = true;
+  // Remove the listener so no more transitions happen
+  if (ds.roomRef && ds.roomListener) {
+    ds.roomRef.off('value', ds.roomListener);
+    ds.roomListener = null;
+  }
+
+  // Show technical win screen
+  showSection(du.resultSection);
+  if (du.winnerBanner) {
+    du.winnerBanner.innerHTML = `🏆 ניצחת טכנית! ${ds.opponentName} התנתק`;
+    du.winnerBanner.className = 'duel-winner-banner banner-win';
+  }
+  if (du.finalMeName)   du.finalMeName.textContent   = ds.playerName;
+  if (du.finalMeScore)  du.finalMeScore.textContent  = ds.totalScore;
+  if (du.finalOppName)  du.finalOppName.textContent  = ds.opponentName;
+  if (du.finalOppScore) du.finalOppScore.textContent = ds.opponentTotalScore;
+  du.finalMeCard?.classList.add('duel-winner-card');
+  du.finalOppCard?.classList.remove('duel-winner-card');
+  if (du.resultDetails) {
+    du.resultDetails.innerHTML = `<p>⚠️ ${ds.opponentName} התנתק מהמשחק — ניצחת בדרך טכנית.</p>`;
+  }
+  setStatus('הדו-קרב הסתיים.');
 }
 
 // ── Finish Quiz ───────────────────────────────────────────────────
