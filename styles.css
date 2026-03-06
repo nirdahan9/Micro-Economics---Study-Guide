@@ -41,6 +41,8 @@ body {
 }
 
 .app-version-footer {
+  display: block;
+  width: 100%;
   text-align: center;
   padding: 14px 8px 20px;
   font-size: 12px;
