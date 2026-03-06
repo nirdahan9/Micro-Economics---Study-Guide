@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>משחק קבוצתי - מיקרו כלכלה</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body data-mode="multiplayer">
+  <main class="container" id="main-content">
+    <div id="toast-container" aria-live="polite"></div>
+
+    <nav class="breadcrumb" aria-label="ניווט">
+      <a href="index.html">דף ראשי</a>
+      <span class="bc-sep">›</span>
+      <a href="game-modes.html">מצבי משחק</a>
+      <span class="bc-sep">›</span>
+      <span>משחק קבוצתי</span>
+    </nav>
+
+    <!-- Header -->
+    <header class="card">
+      <div class="header-row">
+        <h1>👥 משחק קבוצתי</h1>
+        <div class="actions compact">
+          <a class="btn" href="game-modes.html">חזרה למצבי משחק</a>
+          <a class="btn" href="index.html">דף ראשי</a>
+          <button id="theme-toggle" class="btn" type="button" aria-label="החלפת מצב תצוגה">🌙 מצב כהה</button>
+        </div>
+      </div>
+      <p id="mp-status" class="status">הכנס שם ובחר: צור חדר חדש או הצטרף לחדר קיים</p>
+    </header>
+
+    <!-- ═══════ SECTION 1: LOBBY ═══════ -->
+    <section class="card" id="mp-lobby-section">
+      <h2>כניסה למשחק קבוצתי</h2>
+
+      <div class="field">
+        <label for="mp-player-name">השם שלך</label>
+        <input id="mp-player-name" type="text" maxlength="20" placeholder="לדוגמה: ניר" autocomplete="off" />
+      </div>
+
+      <!-- Tab Toggle -->
+      <div class="lobby-tabs" role="tablist">
+        <button class="lobby-tab active" id="mp-tab-create" role="tab" aria-selected="true"  aria-controls="mp-panel-create" type="button">🏠 צור חדר חדש</button>
+        <button class="lobby-tab"        id="mp-tab-join"   role="tab" aria-selected="false" aria-controls="mp-panel-join"   type="button">🔗 הצטרף לחדר</button>
+      </div>
+
+      <!-- Create Room Panel -->
+      <div class="lobby-tab-panel" id="mp-panel-create" role="tabpanel" aria-labelledby="mp-tab-create">
+        <p class="muted" style="margin:0 0 12px;">הגדר את המשחק ובחר שיעורים. עד 6 שחקנים יכולים להצטרף עם הקוד שיתווצר.</p>
+        <div class="duel-settings-row">
+          <div class="field">
+            <label for="mp-num-questions">מספר שאלות</label>
+            <input id="mp-num-questions" type="number" min="3" max="20" value="8" class="duel-setting-input" />
+          </div>
+          <div class="field">
+            <label for="mp-time-limit">זמן לשאלה <span class="muted">(שנ')</span></label>
+            <input id="mp-time-limit" type="number" min="15" max="120" value="30" class="duel-setting-input" />
+          </div>
+        </div>
+        <div class="field">
+          <p class="label">בחירת שיעורים (ברירת מחדל: הכל)</p>
+          <div id="mp-lecture-filters" class="lecture-grid"></div>
+        </div>
+        <button id="mp-create-room-btn" class="btn primary">👥 צור חדר</button>
+      </div>
+
+      <!-- Join Room Panel -->
+      <div class="lobby-tab-panel hidden" id="mp-panel-join" role="tabpanel" aria-labelledby="mp-tab-join">
+        <p class="muted" style="margin:0 0 8px;">קבל קוד מיוצר החדר והצטרף למשחק.</p>
+        <div class="field">
+          <label for="mp-room-code-input">קוד חדר (6 תווים)</label>
+          <input id="mp-room-code-input" type="text" maxlength="6" placeholder="ABC123" class="room-code-input" autocomplete="off" />
+        </div>
+        <button id="mp-join-room-btn" class="btn primary">🚀 הצטרף</button>
+      </div>
+
+      <div id="mp-lobby-error" class="feedback bad hidden" style="margin-top: 14px;"></div>
+    </section>
+
+    <!-- ═══════ SECTION 2: WAITING ROOM ═══════ -->
+    <section class="card hidden" id="mp-waiting-section">
+      <h2>⏳ חדר המתנה</h2>
+
+      <div class="duel-room-code-display">
+        <p class="muted">שתף את הקוד הזה עם החברים שלך:</p>
+        <div id="mp-room-code-display" class="room-code-big"></div>
+        <div style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
+          <button id="mp-copy-code-btn" class="btn">📋 העתק קוד</button>
+          <a id="mp-whatsapp-share-btn" class="btn btn-whatsapp" href="#" target="_blank" rel="noopener noreferrer">📱 שתף ב-WhatsApp</a>
+        </div>
+      </div>
+
+      <!-- Connected players list -->
+      <div id="mp-player-list" class="mp-player-list"></div>
+      <p id="mp-player-count" class="muted" style="text-align:center; margin-top:4px; font-size:13px;"></p>
+
+      <div class="actions" style="margin-top:20px; justify-content:center;">
+        <button id="mp-ready-btn" class="btn primary hidden" type="button">✅ אני מוכן!</button>
+      </div>
+      <p id="mp-waiting-ready-msg" class="muted hidden" style="text-align:center; margin-top:8px;"></p>
+    </section>
+
+    <!-- ═══════ SECTION 3: COUNTDOWN ═══════ -->
+    <section class="card hidden" id="mp-countdown-section">
+      <h2 style="text-align:center;">🎮 המשחק מתחיל!</h2>
+      <div class="duel-countdown-wrap">
+        <div id="mp-countdown-number" class="duel-countdown-number">3</div>
+      </div>
+      <p id="mp-countdown-players" class="muted" style="text-align:center; margin-top:8px;"></p>
+    </section>
+
+    <!-- ═══════ SECTION 4: QUIZ ═══════ -->
+    <section class="card hidden" id="mp-quiz-section">
+
+      <!-- Live leaderboard (compact) -->
+      <div id="mp-live-leaderboard" class="mp-live-leaderboard"></div>
+
+      <!-- Timer + progress -->
+      <div class="duel-timer-wrap">
+        <svg viewBox="0 0 100 100" class="duel-timer-svg" aria-hidden="true">
+          <circle cx="50" cy="50" r="40" class="duel-timer-bg"/>
+          <circle cx="50" cy="50" r="40" id="mp-timer-arc" class="duel-timer-arc"
+            stroke-dasharray="251.3" stroke-dashoffset="0"/>
+        </svg>
+        <div id="mp-timer-text" class="duel-timer-text">30</div>
+      </div>
+
+      <div class="duel-progress-bar-wrap">
+        <div id="mp-progress-bar" class="duel-progress-bar-fill"></div>
+      </div>
+
+      <div class="quiz-head">
+        <h2>תרגול</h2>
+        <p id="mp-question-num" class="meta"></p>
+      </div>
+
+      <div id="mp-others-answered-badge" class="duel-opp-badge hidden"></div>
+
+      <div id="mp-question-meta" class="meta"></div>
+      <h3 id="mp-question-text" class="question"></h3>
+
+      <form id="mp-answers-form" class="choices"></form>
+
+      <div class="actions">
+        <button id="mp-submit-btn" class="btn primary" type="button">שלח תשובה</button>
+      </div>
+
+      <p id="mp-waiting-others-msg" class="muted hidden" style="text-align:center;">⏳ ממתין שהשאר יענו...</p>
+
+      <div id="mp-feedback" class="feedback hidden"></div>
+    </section>
+
+    <!-- ═══════ SECTION 4b: FEEDBACK (between questions) ═══════ -->
+    <section class="card hidden" id="mp-feedback-section">
+      <h2 id="mp-fb-section-title">📊 סיכום שאלה</h2>
+
+      <div id="mp-fb-result"></div>
+      <div id="mp-fb-explanation" class="explanation-block"></div>
+      <div id="mp-fb-round-scores"></div>
+
+      <div class="actions" style="margin-top: 18px; justify-content: center;">
+        <button id="mp-next-confirm-btn" class="btn primary" type="button">אני מוכן לשאלה הבאה →</button>
+      </div>
+      <p id="mp-waiting-next-msg" class="muted hidden" style="text-align:center; margin-top:8px;"></p>
+    </section>
+
+    <!-- ═══════ SECTION 5: RESULTS ═══════ -->
+    <section class="card hidden" id="mp-result-section">
+      <div id="mp-winner-banner" class="duel-winner-banner"></div>
+      <h2>🏆 תוצאות סופיות</h2>
+
+      <div id="mp-final-ranking" class="mp-final-ranking"></div>
+      <div id="mp-result-details" class="muted" style="margin-top:8px;"></div>
+
+      <div class="actions" style="justify-content:center; flex-wrap:wrap; margin-top:20px;">
+        <button id="mp-play-again-btn" class="btn primary">🏠 חזרה ללובי</button>
+        <a class="btn" href="game-modes.html">מצבי משחק</a>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Firebase Realtime Database (compat SDK v10) -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
+  <script src="questions-data.js"></script>
+  <script src="multiplayer.js"></script>
+  <footer class="app-version-footer"></footer>
+  <script src="version.js"></script>
+</body>
+</html>
