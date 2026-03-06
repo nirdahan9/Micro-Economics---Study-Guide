@@ -596,6 +596,8 @@ function listenForOpponent() {
       if (oppId2 && players[oppId2]?.readyConfirmed) {
         ds.oppReadyConfirmed = true;
         if (du.waitingReadyMsg) du.waitingReadyMsg.textContent = `${ds.opponentName} מוכן! מחכה לעילה...`;
+        // If host already clicked ready too, trigger the start now
+        if (players[ds.playerId]?.readyConfirmed) checkBothReady();
       }
     }
     if (room.status === 'countdown_start') {
