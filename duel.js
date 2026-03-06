@@ -653,7 +653,8 @@ function listenForOpponent() {
       }
     }
     if (room.status === 'countdown_start') {
-      ds.roomRef.off('value');
+      ds.roomRef.off('value', ds.waitingListener);
+      ds.waitingListener = null;
       startCountdown(() => {
         startDuelQuiz();
         startRoomListener();
@@ -791,14 +792,6 @@ function startRoomListener() {
         if (ds.role === 'host') checkBothNext();
       }
 
-      // Opponent requested rematch
-      if (opp.rematchReady && ds.rematchRequested && du.rematchWaitingMsg) {
-        du.rematchWaitingMsg.textContent = `${ds.opponentName} אישר! מתחיל סיבוב נוסף...`;
-      }
-      // Host checks if both requested rematch
-      if (opp.rematchReady && ds.rematchRequested && ds.role === 'host') {
-        checkBothRematch();
-      }
     }
 
     // ── STATUS TRANSITIONS ──────────────────────────────────────
@@ -857,10 +850,6 @@ function startRoomListener() {
       if (!ds.selfFinished) finishDuelQuiz();
     }
 
-    // Rematch: host reset room to both_joined — transition both players back to waiting room
-    if (room.status === 'both_joined' && ds.selfFinished) {
-      handleRematchReset(room);
-    }
   });
 }
 
@@ -1226,126 +1215,111 @@ function copyRoomCode() {
 function requestRematch() {
   if (ds.rematchRequested) return;
   ds.rematchRequested = true;
-  if (du.rematchBtn) { du.rematchBtn.disabled = true; du.rematchBtn.textContent = '⏳ ממתין לאישור היריב...'; }
-  if (du.rematchWaitingMsg) { du.rematchWaitingMsg.textContent = 'ממתין שהיריב יאשר גם...'; du.rematchWaitingMsg.classList.remove('hidden'); }
-  ds.roomRef?.child(`players/${ds.playerId}`).update({ rematchReady: true })
-    .then(() => { if (ds.role === 'host') checkBothRematch(); })
-    .catch(e => console.error(e));
-}
+  if (du.rematchBtn) { du.rematchBtn.disabled = true; }
 
-async function checkBothRematch() {
-  const snap = await ds.roomRef.once('value');
-  const room = snap.val();
-  if (!room) return;
-  const players = Object.values(room.players || {});
-  if (players.length === 2 && players.every(p => p.rematchReady)) {
-    startRematch(room);
-  }
-}
-
-async function startRematch(room) {
-  const lectureIds = ds.lectureIds.length ? ds.lectureIds
-    : [...new Set(ds.selectedQuestions.map(q => q.lectureId))];
-  const pool  = shuffle(ds.allQuestions.filter(q => lectureIds.includes(q.lectureId)));
-  const newQs = pool.length >= ds.questionCount ? pool.slice(0, ds.questionCount) : pool;
-
-  const updates = {
-    status:          'both_joined',   // send both players back to waiting room
-    questionIds:     newQs.map(q => q.uniqueId),
-    questionStartAt: null,
-    questionIndex:   0,
-  };
-  Object.keys(room.players || {}).forEach(pid => {
-    updates[`players/${pid}/totalScore`]     = 0;
-    updates[`players/${pid}/currentIndex`]   = 0;
-    updates[`players/${pid}/answeredIndex`]  = -1;
-    updates[`players/${pid}/answerTimeMs`]   = null;
-    updates[`players/${pid}/roundScore`]     = null;
-    updates[`players/${pid}/finished`]       = false;
-    updates[`players/${pid}/readyConfirmed`] = false;
-    updates[`players/${pid}/nextConfirmed`]  = -1;
-    updates[`players/${pid}/rematchReady`]   = false;
-    updates[`players/${pid}/connected`]      = true;  // reset in case onDisconnect fired during prev game
-  });
-  await ds.roomRef.update(updates).catch(e => console.error(e));
-}
-
-function handleRematchReset(room) {
-  // Detach game listener immediately so no further transitions fire
+  // Detach game listener — no transitions needed on the results screen
   if (ds.roomRef && ds.roomListener) {
     ds.roomRef.off('value', ds.roomListener);
     ds.roomListener = null;
   }
 
-  // Load new questions from Firebase
-  const qMap = new Map(ds.allQuestions.map(q => [q.uniqueId, q]));
-  ds.selectedQuestions = (room.questionIds || []).map(id => qMap.get(id)).filter(Boolean);
-  ds.questionCount     = room.questionCount   || ds.questionCount;
-  ds.questionTimeSec   = room.questionTimeSec || ds.questionTimeSec;
+  if (ds.role === 'host') {
+    // ── Host: pick fresh questions, reset room to 'waiting', go back to waiting room ──
+    const lectureIds = ds.lectureIds.length ? ds.lectureIds
+      : [...new Set(ds.selectedQuestions.map(q => q.lectureId))];
+    const pool  = shuffle(ds.allQuestions.filter(q => lectureIds.includes(q.lectureId)));
+    const newQs = pool.length >= ds.questionCount ? pool.slice(0, ds.questionCount) : pool;
 
-  // Full game-state reset
-  ds.currentIndex      = 0;
-  ds.totalScore        = 0;
-  ds.opponentTotalScore = 0;
-  ds.answered          = false;
-  ds.selfFinished      = false;
-  ds.opponentFinished  = false;
-  ds.myRoundScore      = 0;
-  ds.oppRoundScore     = 0;
-  ds.countingNext      = false;
-  ds.rematchRequested  = false;
-  ds.opponentCurrentAnsweredIndex = -1;
-  ds.oppReadyConfirmed = false;
-  ds.oppNextConfirmed  = false;
+    const updates = {
+      status:          'waiting',
+      guestId:         null,
+      questionIds:     newQs.map(q => q.uniqueId),
+      questionStartAt: null,
+      questionIndex:   0,
+    };
+    if (ds.opponentId) updates[`players/${ds.opponentId}`] = null;
+    updates[`players/${ds.playerId}/totalScore`]     = 0;
+    updates[`players/${ds.playerId}/currentIndex`]   = 0;
+    updates[`players/${ds.playerId}/answeredIndex`]  = -1;
+    updates[`players/${ds.playerId}/answerTimeMs`]   = null;
+    updates[`players/${ds.playerId}/roundScore`]     = null;
+    updates[`players/${ds.playerId}/finished`]       = false;
+    updates[`players/${ds.playerId}/readyConfirmed`] = false;
+    updates[`players/${ds.playerId}/nextConfirmed`]  = -1;
+    updates[`players/${ds.playerId}/connected`]      = true;
+    updates[`players/${ds.playerId}/rematchReady`]   = false;
 
-  // Clean up CSS class guards
+    ds.selectedQuestions = newQs;
+    resetLocalStateForRematch();
+
+    // Re-register onDisconnect for the new session
+    ds.roomRef.child(`players/${ds.playerId}/connected`).onDisconnect().set(false);
+
+    ds.roomRef.update(updates).then(() => {
+      if (du.waitMeName)  du.waitMeName.textContent  = ds.playerName;
+      if (du.waitOppName) du.waitOppName.textContent = 'ממתין...';
+      if (du.waitOppBadge) {
+        du.waitOppBadge.textContent = '⏳ טרם הצטרף';
+        du.waitOppBadge.className   = 'duel-player-badge badge-waiting';
+      }
+      if (du.roomCodeDisplay) du.roomCodeDisplay.textContent = ds.roomId;
+      if (du.readyBtn) {
+        du.readyBtn.classList.add('hidden');
+        du.readyBtn.disabled    = false;
+        du.readyBtn.textContent = '✅ אני מוכן!';
+      }
+      if (du.waitingReadyMsg) { du.waitingReadyMsg.textContent = ''; du.waitingReadyMsg.classList.add('hidden'); }
+      showSection(du.waitingSection);
+      showToast('🔄 החדר אופס — ממתין ליריב להצטרף שוב...', 'ok', 4000);
+      setStatus(`החדר פתוח (${ds.roomId}) — שלח את הקוד ליריב`);
+      listenForOpponent();
+    }).catch(e => { console.error(e); ds.rematchRequested = false; });
+
+  } else {
+    // ── Guest: reset local state, go to lobby with room code pre-filled ──
+    const savedRoomId = ds.roomId;
+    resetLocalStateForRematch();
+    if (du.roomCodeInput) du.roomCodeInput.value = savedRoomId || '';
+    // Switch lobby to join tab
+    const tabCreate   = document.getElementById('tab-create');
+    const tabJoin     = document.getElementById('tab-join');
+    const panelCreate = document.getElementById('panel-create');
+    const panelJoin   = document.getElementById('panel-join');
+    if (tabCreate && tabJoin && panelCreate && panelJoin) {
+      tabCreate.classList.remove('active'); tabCreate.setAttribute('aria-selected', 'false');
+      tabJoin.classList.add('active');      tabJoin.setAttribute('aria-selected', 'true');
+      panelCreate.classList.add('hidden');
+      panelJoin.classList.remove('hidden');
+    }
+    showSection(du.lobbySection);
+    showToast(`🔄 החדר עדיין פתוח (${savedRoomId}) — הכנס שם ולחץ הצטרף`, 'info', 5000);
+    setStatus('הכנס שם ולחץ "הצטרף" לסיבוב נוסף');
+  }
+}
+
+function resetLocalStateForRematch() {
+  stopTimer();
   if (du.quizSection) {
     [...du.quizSection.classList].filter(c => c.startsWith('shown_q'))
       .forEach(c => du.quizSection.classList.remove(c));
   }
   du.feedbackSection?.classList.remove('active-feedback');
   du.countdownSection?.classList.remove('counting');
-
-  // Reset scoreboard
+  ds.currentIndex       = 0;
+  ds.totalScore         = 0;
+  ds.opponentTotalScore = 0;
+  ds.answered           = false;
+  ds.selfFinished       = false;
+  ds.opponentFinished   = false;
+  ds.myRoundScore       = 0;
+  ds.oppRoundScore      = 0;
+  ds.countingNext       = false;
+  ds.opponentCurrentAnsweredIndex = -1;
+  ds.oppReadyConfirmed  = false;
+  ds.oppNextConfirmed   = false;
   if (du.liveMeScore)  du.liveMeScore.textContent  = '0';
   if (du.liveOppScore) du.liveOppScore.textContent = '0';
-
-  // Restore waiting room UI
-  if (du.waitMeName)  du.waitMeName.textContent  = ds.playerName;
-  if (du.waitOppName) du.waitOppName.textContent = ds.opponentName || 'יריב';
-  if (du.waitOppBadge) {
-    du.waitOppBadge.textContent = '✅ מחובר';
-    du.waitOppBadge.className   = 'duel-player-badge badge-ready';
-  }
-  if (du.roomCodeDisplay) du.roomCodeDisplay.textContent = ds.roomId;
-  if (du.readyBtn) {
-    du.readyBtn.disabled    = false;
-    du.readyBtn.textContent = '✅ אני מוכן!';
-    du.readyBtn.classList.remove('hidden');
-  }
-  if (du.waitingReadyMsg) { du.waitingReadyMsg.textContent = ''; du.waitingReadyMsg.classList.add('hidden'); }
-
-  // Re-affirm own connection status and re-register onDisconnect handler.
-  // If onDisconnect fired due to a brief network blip during the previous game,
-  // connected would still be false without this reset.
-  if (ds.roomRef && ds.playerId) {
-    const connRef = ds.roomRef.child(`players/${ds.playerId}/connected`);
-    connRef.set(true).catch(() => {});
-    connRef.onDisconnect().set(false);
-  }
-
-  showSection(du.waitingSection);
-  showToast(`🔄 סיבוב נוסף — ${ds.questionCount} שאלות! לחץ "אני מוכן" להתחלה`, 'ok', 4000);
-  setStatus('סיבוב נוסף — לחץ "אני מוכן" להתחיל');
-
-  // Re-attach appropriate waiting-room listener
-  if (ds.role === 'host') {
-    listenForOpponent();
-  } else {
-    attachGuestWaitingListener();
-  }
 }
-
 // ── Play Again ────────────────────────────────────────────────────
 
 function playAgain() {
