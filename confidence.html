@@ -24,6 +24,10 @@
           <button id="theme-toggle" class="btn" type="button" aria-label="החלפת מצב תצוגה">🌙 מצב כהה</button>
         </div>
       </div>
+      <div class="auth-status-bar" id="auth-status-bar">
+        <span id="auth-user-display"></span>
+        <button id="logout-btn" class="btn btn-logout" type="button">התנתקות</button>
+      </div>
       <p id="load-status" class="status">מצב נוכחי: Confidence Mode</p>
     </header>
 
@@ -102,6 +106,7 @@
     </section>
   </main>
 
+  <script src="auth.js"></script>
   <script src="questions-data.js"></script>
   <script src="quiz.js"></script>
   <footer class="app-version-footer"></footer>

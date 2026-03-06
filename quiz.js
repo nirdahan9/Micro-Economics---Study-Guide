@@ -13,7 +13,6 @@ const state = {
   marathonHasTimer: false,
   freestyleUnlimited: false,
   quizStartedAt: 0,
-  weakProfile: 'global',
   weakStats: {},
   wrongStats: {},
   displayedChoices: {},
@@ -34,8 +33,10 @@ const el = {
   timerField: document.getElementById('timer-field') || document.getElementById('timer-settings'),
   marathonTotalMinutes: document.getElementById('marathon-total-minutes'),
   livesCount: document.getElementById('lives-count'),
-  weakUsername: document.getElementById('weak-username'),
-  weakProfileStatus: document.getElementById('weak-profile-status'),
+  questionFilterInputs: document.querySelectorAll('input[name="question-filter"]'),
+  authStatusBar: document.getElementById('auth-status-bar'),
+  authUserDisplay: document.getElementById('auth-user-display'),
+  logoutBtn: document.getElementById('logout-btn'),
   startQuiz: document.getElementById('start-quiz'),
   resetSetup: document.getElementById('reset-setup'),
   selectionSummary: document.getElementById('selection-summary'),
@@ -67,8 +68,18 @@ const el = {
 };
 
 const THEME_KEY = 'micro-study-theme';
-const WEAK_STATS_KEY = 'micro-study-weak-stats-v1';
-const WRONG_STATS_KEY = 'micro-study-wrong-stats-v1';
+const WEAK_STATS_KEY_PREFIX  = 'micro-study-weak-stats-v1';
+const WRONG_STATS_KEY_PREFIX = 'micro-study-wrong-stats-v1';
+
+function getWeakStatsKey() {
+  const u = (typeof AUTH !== 'undefined') ? AUTH.currentUser() : null;
+  return `${WEAK_STATS_KEY_PREFIX}__${u || 'global'}`;
+}
+
+function getWrongStatsKey() {
+  const u = (typeof AUTH !== 'undefined') ? AUTH.currentUser() : null;
+  return `${WRONG_STATS_KEY_PREFIX}__${u || 'global'}`;
+}
 
 const MODE_LABELS = {
   freestyle: 'Freestyle',
@@ -76,7 +87,6 @@ const MODE_LABELS = {
   timer: 'טיימר',
   lives: 'חיים',
   'sudden-death': 'Sudden Death',
-  'review-wrong': 'Review Wrong Answers',
   confidence: 'Confidence Mode',
   'weak-first': 'חלשים קודם',
 };
@@ -264,27 +274,21 @@ function shuffle(arr) {
 }
 
 function loadWeakStats() {
-  const key = `${WEAK_STATS_KEY}__${state.weakProfile}`;
   try {
-    const raw = localStorage.getItem(key);
+    const raw = localStorage.getItem(getWeakStatsKey());
     state.weakStats = raw ? JSON.parse(raw) : {};
   } catch {
     state.weakStats = {};
   }
-
-  if (el.weakProfileStatus) {
-    el.weakProfileStatus.textContent = `פרופיל פעיל: ${state.weakProfile === 'global' ? 'כללי' : state.weakProfile}`;
-  }
 }
 
 function saveWeakStats() {
-  const key = `${WEAK_STATS_KEY}__${state.weakProfile}`;
-  localStorage.setItem(key, JSON.stringify(state.weakStats));
+  localStorage.setItem(getWeakStatsKey(), JSON.stringify(state.weakStats));
 }
 
 function loadWrongStats() {
   try {
-    const raw = localStorage.getItem(WRONG_STATS_KEY);
+    const raw = localStorage.getItem(getWrongStatsKey());
     state.wrongStats = raw ? JSON.parse(raw) : {};
   } catch {
     state.wrongStats = {};
@@ -292,7 +296,7 @@ function loadWrongStats() {
 }
 
 function saveWrongStats() {
-  localStorage.setItem(WRONG_STATS_KEY, JSON.stringify(state.wrongStats));
+  localStorage.setItem(getWrongStatsKey(), JSON.stringify(state.wrongStats));
 }
 
 function getModeLabel(mode) {
@@ -318,14 +322,6 @@ function updateModeUi() {
 
   if (el.marathonTotalMinutes && state.mode === 'marathon') {
     el.marathonTotalMinutes.closest('.field')?.classList.remove('hidden');
-  }
-
-  if (el.weakUsername && state.mode !== 'weak-first') {
-    el.weakUsername.closest('.field')?.classList.add('hidden');
-  }
-
-  if (el.weakUsername && state.mode === 'weak-first') {
-    el.weakUsername.closest('.field')?.classList.remove('hidden');
   }
 
   if (el.confidenceField) {
@@ -378,7 +374,19 @@ function buildSelection() {
   const selectedLectures = getSelectedLectureIds();
   let filtered = state.allQuestions.filter((q) => selectedLectures.includes(q.lectureId));
 
-  if (state.mode === 'weak-first') {
+  // In weak-first mode, check if user wants wrong-only subset
+  const questionFilter = [...(el.questionFilterInputs || [])].find((r) => r.checked)?.value || 'all';
+  const wrongOnlyMode = state.mode === 'weak-first' && questionFilter === 'wrong-only';
+
+  if (wrongOnlyMode) {
+    filtered = filtered.filter((q) => Number(state.wrongStats[q.uniqueId] || 0) > 0);
+    filtered = [...filtered].sort((a, b) => {
+      const aw = Number(state.wrongStats[a.uniqueId] || 0);
+      const bw = Number(state.wrongStats[b.uniqueId] || 0);
+      if (bw !== aw) return bw - aw;
+      return Math.random() - 0.5;
+    });
+  } else if (state.mode === 'weak-first') {
     filtered = [...filtered].sort((a, b) => {
       const aw = Number(state.weakStats[a.uniqueId] || 0);
       const bw = Number(state.weakStats[b.uniqueId] || 0);
@@ -387,16 +395,6 @@ function buildSelection() {
     });
   } else {
     filtered = shuffle(filtered);
-  }
-
-  if (state.mode === 'review-wrong') {
-    filtered = filtered.filter((q) => Number(state.wrongStats[q.uniqueId] || 0) > 0);
-    filtered = [...filtered].sort((a, b) => {
-      const aw = Number(state.wrongStats[a.uniqueId] || 0);
-      const bw = Number(state.wrongStats[b.uniqueId] || 0);
-      if (bw !== aw) return bw - aw;
-      return Math.random() - 0.5;
-    });
   }
 
   const countInput = el.questionCount.value.trim();
@@ -412,7 +410,7 @@ function buildSelection() {
     ? `שיעור ${selectedLectures.map((id) => Number(id)).join(', ')}`
     : 'לא נבחרו מצגות';
 
-  if (state.mode === 'review-wrong') {
+  if (wrongOnlyMode) {
     el.selectionSummary.textContent = `ייבחרו ${selected.length} שאלות מתוך ${filtered.length} שאלות שסומנו כשגויות בעבר. שיעורים: ${lectureText}`;
   } else {
     el.selectionSummary.textContent = `ייבחרו ${selected.length} שאלות מתוך ${filtered.length} שאלות תואמות. שיעורים: ${lectureText}`;
@@ -628,30 +626,15 @@ function moveNext() {
   }
 }
 
-function getWeakProfileFromInput() {
-  const raw = (el.weakUsername?.value || '').trim();
-  if (!raw) return 'global';
-  return raw.toLowerCase().replace(/\s+/g, '_').slice(0, 40);
-}
-
-function applyWeakProfileFromInput() {
-  state.weakProfile = getWeakProfileFromInput();
-  loadWeakStats();
-  buildSelection();
-}
-
 function startQuiz() {
   stopTimer();
 
-  if (state.mode === 'weak-first') {
-    applyWeakProfileFromInput();
-  }
-
   const selected = buildSelection();
+  const questionFilter = [...(el.questionFilterInputs || [])].find((r) => r.checked)?.value || 'all';
 
   if (selected.length === 0) {
-    if (state.mode === 'review-wrong') {
-      alert('עדיין אין שאלות שגויות שמורות עבור הסינון שבחרת. נסה קודם לענות על שאלות במצבים אחרים.');
+    if (state.mode === 'weak-first' && questionFilter === 'wrong-only') {
+      alert('עדיין אין שאלות שגויות שמורות עבור הסינון שבחרת. נסה קודם לענות על שאלות ותחזור לכאן.');
     } else {
       alert('לא נמצאו שאלות בהתאם לסינון שבחרת.');
     }
@@ -788,7 +771,26 @@ async function init() {
   const modeFromPage = getModeFromPage();
   const modeFromQuery = getModeFromQuery();
   state.mode = modeFromPage || modeFromQuery || 'freestyle';
-  state.weakProfile = getWeakProfileFromInput();
+
+  // Auth guard for protected modes
+  const PROTECTED_MODES = ['weak-first', 'confidence'];
+  if (PROTECTED_MODES.includes(state.mode) && typeof AUTH !== 'undefined') {
+    AUTH.requireAuth(window.location.pathname + window.location.search);
+    // requireAuth redirects if not logged in; execution continues only when logged in
+  }
+
+  // Populate auth status bar (weak-first and confidence pages have one)
+  if (typeof AUTH !== 'undefined' && el.authStatusBar) {
+    const u = AUTH.currentUser();
+    if (u && el.authUserDisplay) {
+      el.authUserDisplay.textContent = `👤 ${u}`;
+    }
+    el.logoutBtn?.addEventListener('click', () => {
+      AUTH.logout();
+      window.location.replace('login.html?next=' + encodeURIComponent(window.location.pathname));
+    });
+  }
+
   loadWeakStats();
   loadWrongStats();
 
@@ -836,7 +838,7 @@ async function init() {
   el.timerMinutes?.addEventListener('input', buildSelection);
   el.marathonTotalMinutes?.addEventListener('input', buildSelection);
   el.livesCount?.addEventListener('input', buildSelection);
-  el.weakUsername?.addEventListener('change', applyWeakProfileFromInput);
+  el.questionFilterInputs?.forEach((r) => r.addEventListener('change', buildSelection));
 }
 
 init();
