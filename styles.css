@@ -541,7 +541,7 @@ body[data-theme="dark"] .choice.choice-wrong {
   border-inline-end: 1.5px solid var(--border);
 }
 .lobby-tab.active {
-  background: var(--accent);
+  background: #4f6ef7;
   color: #fff;
 }
 .lobby-tab:not(.active):hover {
