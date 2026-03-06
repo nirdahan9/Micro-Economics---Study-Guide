@@ -629,17 +629,23 @@ body[data-theme="dark"] .lobby-tab-panel {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 24px;
+  gap: 16px;
   margin-top: 24px;
-  flex-wrap: wrap;
 }
 .duel-player-card {
   text-align: center;
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 16px 28px;
-  min-width: 140px;
+  padding: 16px 20px;
+  flex: 1;
+  min-width: 0;
   background: linear-gradient(135deg, #ffffff 0%, #f4f9ff 100%);
+}
+@media (max-width: 480px) {
+  .duel-vs-row        { gap: 8px; }
+  .duel-player-card   { padding: 12px 10px; }
+  .duel-player-name   { font-size: 0.9rem; }
+  .duel-vs-label      { font-size: 1.4rem; flex-shrink: 0; }
 }
 body[data-theme="dark"] .duel-player-card {
   background: linear-gradient(135deg, #1a2b44 0%, #1e3050 100%);
@@ -836,18 +842,25 @@ body[data-theme="dark"] .banner-tie {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 20px;
+  gap: 16px;
   margin: 20px 0;
-  flex-wrap: wrap;
 }
 .duel-final-card {
   text-align: center;
   border: 2px solid var(--border);
   border-radius: 14px;
-  padding: 20px 32px;
-  min-width: 140px;
+  padding: 20px 24px;
+  flex: 1;
+  min-width: 0;
   background: linear-gradient(135deg, #ffffff 0%, #f4f9ff 100%);
   transition: border-color 0.3s, box-shadow 0.3s;
+}
+@media (max-width: 480px) {
+  .duel-final-scores  { gap: 8px; }
+  .duel-final-card    { padding: 14px 10px; }
+  .duel-final-num     { font-size: 2rem; }
+  .duel-final-name    { font-size: 0.85rem; }
+  .duel-final-vs      { font-size: 1.4rem; flex-shrink: 0; }
 }
 body[data-theme="dark"] .duel-final-card {
   background: linear-gradient(135deg, #1a2b44 0%, #1e3050 100%);
