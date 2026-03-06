@@ -554,7 +554,12 @@ async function joinRoom() {
     du.waitOppBadge.className   = 'duel-player-badge badge-ready';
   }
   if (du.roomCodeDisplay) du.roomCodeDisplay.textContent = code;
-  if (du.readyBtn)         du.readyBtn.classList.remove('hidden');
+  if (du.readyBtn) {
+    du.readyBtn.disabled    = false;
+    du.readyBtn.textContent = '✅ אני מוכן!';
+    du.readyBtn.classList.remove('hidden');
+  }
+  if (du.waitingReadyMsg) { du.waitingReadyMsg.textContent = ''; du.waitingReadyMsg.classList.add('hidden'); }
   showSection(du.waitingSection);
   setStatus(`הצטרפת לחדר ${code} — לחץ “אני מוכן” כדי להתחיל`);
 
@@ -586,7 +591,8 @@ function attachGuestWaitingListener() {
 
     if (oppId && players[oppId]?.readyConfirmed && du.waitingReadyMsg) {
       ds.oppReadyConfirmed = true;
-      du.waitingReadyMsg.textContent = `${ds.opponentName} מוכן! מחכה לעילה...`;
+      du.waitingReadyMsg.textContent = `${ds.opponentName} ✅`;
+      du.waitingReadyMsg.classList.remove('hidden');
     }
     if (room.status === 'countdown_start') {
       ds.roomRef.off('value', ds.waitingListener);
@@ -653,7 +659,10 @@ function listenForOpponent() {
       const oppId2 = Object.keys(players).find(id => id !== ds.playerId);
       if (oppId2 && players[oppId2]?.readyConfirmed) {
         ds.oppReadyConfirmed = true;
-        if (du.waitingReadyMsg) du.waitingReadyMsg.textContent = `${ds.opponentName} מוכן! מחכה לעילה...`;
+        if (du.waitingReadyMsg) {
+          du.waitingReadyMsg.textContent = `${ds.opponentName} ✅`;
+          du.waitingReadyMsg.classList.remove('hidden');
+        }
         // If host already clicked ready too, trigger the start now
         if (players[ds.playerId]?.readyConfirmed) checkBothReady();
       }
@@ -674,7 +683,10 @@ function listenForOpponent() {
 function confirmReady() {
   if (du.readyBtn) { du.readyBtn.disabled = true; du.readyBtn.textContent = '✅ מוכן!'; }
   if (du.waitingReadyMsg) {
-    du.waitingReadyMsg.textContent = 'ממתין שהיריב יאשר גם...';
+    const oppName = ds.opponentName || 'שחקן השני';
+    du.waitingReadyMsg.textContent = ds.oppReadyConfirmed
+      ? `${oppName} ✅`
+      : `${oppName}: טרם אישר ⏳`;
     du.waitingReadyMsg.classList.remove('hidden');
   }
 
@@ -1325,6 +1337,8 @@ function resetLocalStateForRematch() {
   ds.oppNextConfirmed   = false;
   if (du.liveMeScore)  du.liveMeScore.textContent  = '0';
   if (du.liveOppScore) du.liveOppScore.textContent = '0';
+  if (du.readyBtn) { du.readyBtn.disabled = false; du.readyBtn.textContent = '✅ אני מוכן!'; }
+  if (du.waitingReadyMsg) { du.waitingReadyMsg.textContent = ''; du.waitingReadyMsg.classList.add('hidden'); }
 }
 // ── Play Again ────────────────────────────────────────────────────
 
