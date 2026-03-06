@@ -35,6 +35,20 @@
       <h2>הגדרות תרגול</h2>
 
       <div class="field">
+        <p class="label">סוג שאלות לתרגול</p>
+        <div class="question-filter-row">
+          <label class="question-filter-option">
+            <input type="radio" name="question-filter" value="all" checked />
+            <span>כל השאלות</span>
+          </label>
+          <label class="question-filter-option">
+            <input type="radio" name="question-filter" value="wrong-only" />
+            <span>רק שאלות שטעיתי בהן בעבר</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="field">
         <label for="question-count">מספר שאלות לתרגול (השאר ריק = כל השאלות)</label>
         <input id="question-count" type="number" min="1" placeholder="לדוגמה: 20" />
       </div>
@@ -56,6 +70,13 @@
       <div class="quiz-head">
         <h2>תרגול</h2>
         <p id="progress"></p>
+      </div>
+
+      <div id="progress-bar-wrap" class="progress-bar-wrap">
+        <div class="progress-bar-track">
+          <div id="progress-bar-fill" class="progress-bar-fill"></div>
+        </div>
+        <span id="progress-bar-text" class="progress-bar-text"></span>
       </div>
 
       <div class="quiz-state-row">
@@ -94,6 +115,25 @@
       </div>
 
       <div id="feedback" class="feedback hidden"></div>
+
+      <div id="confidence-change-section" class="confidence-change-section hidden">
+        <p class="label">רוצה לשנות את רמת הביטחון שלך? בחר מחדש:</p>
+        <div id="confidence-change-options" class="confidence-options">
+          <label class="confidence-option">
+            <input type="radio" name="confidence-change-level" value="high" />
+            <span>גבוה</span>
+          </label>
+          <label class="confidence-option">
+            <input type="radio" name="confidence-change-level" value="medium" />
+            <span>בינוני</span>
+          </label>
+          <label class="confidence-option">
+            <input type="radio" name="confidence-change-level" value="low" />
+            <span>נמוך</span>
+          </label>
+        </div>
+        <button id="confidence-change-confirm" class="btn" type="button">עדכן רמת ביטחון</button>
+      </div>
     </section>
 
     <section class="card hidden" id="result-section">

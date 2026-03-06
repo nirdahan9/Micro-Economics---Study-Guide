@@ -1536,3 +1536,83 @@ body[data-theme="dark"] .nav-item-locked {
   border-color: #4a3880;
   background: linear-gradient(135deg, #1e1630 0%, #1a1e3a 100%);
 }
+
+/* ═══════════════════════════════════════════════════════
+   PROGRESS BAR (weak-first + confidence)
+   ═══════════════════════════════════════════════════════ */
+
+.progress-bar-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 4px 0 14px;
+}
+
+.progress-bar-track {
+  flex: 1;
+  min-width: 80px;
+  height: 10px;
+  background: var(--border);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 99px;
+  background: var(--muted);
+  transition: width 0.45s ease, background-color 0.45s ease;
+}
+
+.progress-bar-fill.good   { background: var(--ok); }
+.progress-bar-fill.medium { background: var(--accent); }
+.progress-bar-fill.bad    { background: var(--bad); }
+
+.progress-bar-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* ═══════════════════════════════════════════════════════
+   CONFIDENCE CHANGE PANEL (after answering)
+   ═══════════════════════════════════════════════════════ */
+
+.confidence-change-section {
+  margin-top: 14px;
+  border: 1px solid #c9b8ff;
+  border-radius: 10px;
+  padding: 12px 14px;
+  background: linear-gradient(135deg, #f7f3ff 0%, #f0ecff 100%);
+}
+
+body[data-theme="dark"] .confidence-change-section {
+  border-color: #4a3880;
+  background: linear-gradient(135deg, #221b3f 0%, #1a1e3a 100%);
+}
+
+.confidence-change-section .label {
+  font-size: 14px;
+  margin-bottom: 10px;
+  color: var(--muted);
+}
+
+#confidence-change-confirm {
+  margin-top: 10px;
+  border-color: #c9b8ff;
+  background: linear-gradient(135deg, #f3eeff 0%, #eae0ff 100%);
+  color: var(--primary);
+}
+
+#confidence-change-confirm:hover {
+  background: linear-gradient(135deg, #ebe2ff 0%, #ddd4ff 100%);
+}
+
+body[data-theme="dark"] #confidence-change-confirm {
+  border-color: #4a3880;
+  background: linear-gradient(135deg, #1e1630 0%, #1a1e3a 100%);
+  color: #a990ff;
+}

@@ -18,6 +18,8 @@ const state = {
   displayedChoices: {},
   currentCorrectLabel: '',
   suddenDeathFailed: false,
+  currentConfidenceLevel: '',
+  currentAnswerIsCorrect: false,
   confidenceStats: {
     high: { total: 0, correct: 0 },
     medium: { total: 0, correct: 0 },
@@ -57,6 +59,12 @@ const el = {
   feedback: document.getElementById('feedback'),
   confidenceField: document.getElementById('confidence-field'),
   confidenceOptions: document.getElementById('confidence-options'),
+  confidenceChangeSection: document.getElementById('confidence-change-section'),
+  confidenceChangeOptions: document.getElementById('confidence-change-options'),
+  confidenceChangeConfirm: document.getElementById('confidence-change-confirm'),
+  progressBarWrap: document.getElementById('progress-bar-wrap'),
+  progressBarFill: document.getElementById('progress-bar-fill'),
+  progressBarText: document.getElementById('progress-bar-text'),
 
   resultScore: document.getElementById('result-score'),
   resultDetails: document.getElementById('result-details'),
@@ -376,7 +384,7 @@ function buildSelection() {
 
   // In weak-first mode, check if user wants wrong-only subset
   const questionFilter = [...(el.questionFilterInputs || [])].find((r) => r.checked)?.value || 'all';
-  const wrongOnlyMode = state.mode === 'weak-first' && questionFilter === 'wrong-only';
+  const wrongOnlyMode = (state.mode === 'weak-first' || state.mode === 'confidence') && questionFilter === 'wrong-only';
 
   if (wrongOnlyMode) {
     filtered = filtered.filter((q) => Number(state.wrongStats[q.uniqueId] || 0) > 0);
@@ -428,6 +436,15 @@ function renderCurrentQuestion() {
   el.feedback.innerHTML = '';
   el.submitAnswer.disabled = false;
   el.nextQuestion.classList.add('hidden');
+
+  // Reset confidence change section for each new question
+  if (el.confidenceChangeSection) {
+    el.confidenceChangeSection.classList.add('hidden');
+  }
+  if (el.confidenceChangeConfirm) {
+    el.confidenceChangeConfirm.disabled = false;
+    el.confidenceChangeConfirm.textContent = 'עדכן רמת ביטחון';
+  }
 
   if (state.mode === 'confidence' && el.confidenceOptions) {
     [...el.confidenceOptions.querySelectorAll('input[name="confidence-level"]')].forEach((option) => {
@@ -497,6 +514,8 @@ function renderCurrentQuestion() {
     label.appendChild(span);
     el.answersForm.appendChild(label);
   });
+
+  updateProgressBar();
 }
 
 function submitCurrentAnswer() {
@@ -520,10 +539,12 @@ function submitCurrentAnswer() {
 
   const userAnswer = checked.value;
   const isCorrect = userAnswer === state.currentCorrectLabel;
+  state.currentAnswerIsCorrect = isCorrect;
   state.answeredCount += 1;
 
   if (state.mode === 'confidence' && confidenceChecked) {
     const level = confidenceChecked.value;
+    state.currentConfidenceLevel = level;
     if (state.confidenceStats[level]) {
       state.confidenceStats[level].total += 1;
       if (isCorrect) {
@@ -564,6 +585,16 @@ function submitCurrentAnswer() {
     el.nextQuestion.textContent = 'לשאלה הבאה';
   }
 
+  // Show confidence-change panel so user can revise their confidence rating
+  if (state.mode === 'confidence' && el.confidenceChangeSection && state.currentConfidenceLevel) {
+    el.confidenceChangeSection.classList.remove('hidden');
+    const currentRadio = el.confidenceChangeOptions?.querySelector(
+      `input[value="${state.currentConfidenceLevel}"]`
+    );
+    if (currentRadio) currentRadio.checked = true;
+  }
+
+  updateProgressBar();
   el.nextQuestion.classList.remove('hidden');
 }
 
@@ -603,6 +634,63 @@ function showResults(reason = '') {
 
 }
 
+function updateProgressBar() {
+  if (!el.progressBarWrap) return;
+  const showBar = state.mode === 'weak-first' || state.mode === 'confidence';
+  if (!showBar) {
+    el.progressBarWrap.classList.add('hidden');
+    return;
+  }
+  el.progressBarWrap.classList.remove('hidden');
+  if (state.answeredCount === 0) {
+    if (el.progressBarFill) el.progressBarFill.style.width = '0%';
+    if (el.progressBarText) el.progressBarText.textContent = 'עדיין לא ענית על שאלות בסבב זה';
+    return;
+  }
+  const pct = Math.round((state.score / state.answeredCount) * 100);
+  if (el.progressBarFill) {
+    el.progressBarFill.style.width = `${pct}%`;
+    el.progressBarFill.className = `progress-bar-fill ${pct >= 80 ? 'good' : pct >= 50 ? 'medium' : 'bad'}`;
+  }
+  if (el.progressBarText) {
+    el.progressBarText.textContent = `${state.score} מתוך ${state.answeredCount} נכון (${pct}%)`;
+  }
+}
+
+function confirmConfidenceChange() {
+  const newLevelInput = el.confidenceChangeOptions?.querySelector('input[name="confidence-change-level"]:checked');
+  if (!newLevelInput) return;
+  const newLevel = newLevelInput.value;
+  const oldLevel = state.currentConfidenceLevel;
+  if (newLevel === oldLevel) {
+    if (el.confidenceChangeConfirm) {
+      el.confidenceChangeConfirm.textContent = '✓ לא בוצע שינוי';
+      el.confidenceChangeConfirm.disabled = true;
+    }
+    return;
+  }
+  // Undo old level stats
+  if (state.confidenceStats[oldLevel]) {
+    state.confidenceStats[oldLevel].total = Math.max(0, state.confidenceStats[oldLevel].total - 1);
+    if (state.currentAnswerIsCorrect) {
+      state.confidenceStats[oldLevel].correct = Math.max(0, state.confidenceStats[oldLevel].correct - 1);
+    }
+  }
+  // Apply new level stats
+  if (state.confidenceStats[newLevel]) {
+    state.confidenceStats[newLevel].total += 1;
+    if (state.currentAnswerIsCorrect) {
+      state.confidenceStats[newLevel].correct += 1;
+    }
+  }
+  state.currentConfidenceLevel = newLevel;
+  const labels = { high: 'גבוה', medium: 'בינוני', low: 'נמוך' };
+  if (el.confidenceChangeConfirm) {
+    el.confidenceChangeConfirm.textContent = `✓ עודכן ל"${labels[newLevel]}"`;
+    el.confidenceChangeConfirm.disabled = true;
+  }
+}
+
 function moveNext() {
   if (state.mode === 'lives' && state.lives <= 0) {
     showResults('נגמרו החיים.');
@@ -633,7 +721,7 @@ function startQuiz() {
   const questionFilter = [...(el.questionFilterInputs || [])].find((r) => r.checked)?.value || 'all';
 
   if (selected.length === 0) {
-    if (state.mode === 'weak-first' && questionFilter === 'wrong-only') {
+    if ((state.mode === 'weak-first' || state.mode === 'confidence') && questionFilter === 'wrong-only') {
       alert('עדיין אין שאלות שגויות שמורות עבור הסינון שבחרת. נסה קודם לענות על שאלות ותחזור לכאן.');
     } else {
       alert('לא נמצאו שאלות בהתאם לסינון שבחרת.');
@@ -645,6 +733,8 @@ function startQuiz() {
   state.currentIndex = 0;
   state.score = 0;
   state.answeredCount = 0;
+  state.currentConfidenceLevel = '';
+  state.currentAnswerIsCorrect = false;
   state.lives = state.mode === 'lives'
     ? Math.max(1, Number(el.livesCount?.value || 3))
     : 3;
@@ -832,6 +922,8 @@ async function init() {
     el.quizSection.classList.add('hidden');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   });
+
+  el.confidenceChangeConfirm?.addEventListener('click', confirmConfidenceChange);
 
   el.questionCount.addEventListener('input', buildSelection);
   el.lectureFilters.addEventListener('change', buildSelection);
