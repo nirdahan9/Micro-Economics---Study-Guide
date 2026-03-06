@@ -561,6 +561,10 @@ body[data-theme="dark"] .lobby-tab:not(.active):hover {
   display: grid;
   gap: 8px;
 }
+/* Two-class selector wins over both .hidden and .lobby-tab-panel alone */
+.lobby-tab-panel.hidden {
+  display: none;
+}
 body[data-theme="dark"] .lobby-tab-panel {
   background: linear-gradient(135deg, #1a2040 0%, #152a3f 100%);
 }
