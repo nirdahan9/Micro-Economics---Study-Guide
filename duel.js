@@ -674,7 +674,8 @@ function startDuelQuiz() {
   if (du.liveMeScore)  du.liveMeScore.textContent  = '0';
   if (du.liveOppScore) du.liveOppScore.textContent = '0';
 
-  setStatus('⚔️ דו-קרב מתנהל!');
+  setStatus('');
+  if (du.status) du.status.classList.add('hidden');
   // host pushes the first questionStartAt; guest will get it via startRoomListener
   if (ds.role === 'host') {
     ds.roomRef?.update({
@@ -703,7 +704,10 @@ function startRoomListener() {
       ds.opponentFinished             = opp.finished      || false;
       if (opp.answeredIndex === ds.currentIndex) ds.oppRoundScore = opp.roundScore || 0;
 
-      if (du.liveOppScore) du.liveOppScore.textContent = ds.opponentTotalScore;
+      // Only update live scoreboard outside question phase (avoid spoiling correctness)
+      if (room.status !== 'question') {
+        if (du.liveOppScore) du.liveOppScore.textContent = ds.opponentTotalScore;
+      }
 
       // Show badge when opp answers during question phase
       if (room.status === 'question' && opp.answeredIndex === ds.currentIndex && !ds.answered) {
@@ -894,7 +898,7 @@ function submitDuelAnswer() {
   ds.totalScore   += earned;
 
   if (du.submitBtn) du.submitBtn.classList.add('hidden');
-  if (du.liveMeScore) du.liveMeScore.textContent = ds.totalScore;
+  // Don't update liveMeScore here — update after feedback screen shows, to avoid spoiling correctness
 
   // Disable all choices — DON'T reveal correct/wrong yet.
   // The correct answer + explanation will appear on the feedback screen
@@ -960,6 +964,9 @@ function timeoutAnswer() {
 function showFeedbackScreen() {
   du.feedbackSection?.classList.add('active-feedback');
   stopTimer();
+  // Now it's safe to reveal updated scores on the live scoreboard
+  if (du.liveMeScore)  du.liveMeScore.textContent  = ds.totalScore;
+  if (du.liveOppScore) du.liveOppScore.textContent = ds.opponentTotalScore;
   const titleEl = document.getElementById('fb-section-title');
   if (titleEl) titleEl.textContent = `📊 סיכום שאלה ${ds.currentIndex + 1} / ${ds.selectedQuestions.length}`;
 

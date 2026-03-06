@@ -703,13 +703,14 @@ body[data-theme="dark"] .badge-waiting {
 /* Live scoreboard */
 .duel-live-scoreboard {
   display: flex;
+  flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 8px;
   background: linear-gradient(135deg, #f2f0ff 0%, #e8f3ff 100%);
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 14px 16px;
+  padding: 10px 12px;
   margin-bottom: 16px;
 }
 body[data-theme="dark"] .duel-live-scoreboard {
@@ -752,6 +753,11 @@ body[data-theme="dark"] .duel-score-card.duel-score-opp {
   font-weight: 900;
   color: var(--primary);
   line-height: 1;
+}
+@media (max-width: 480px) {
+  .duel-score-num  { font-size: 1.6rem; }
+  .duel-score-name { font-size: 11px; }
+  .duel-live-vs    { font-size: 1rem; }
 }
 .duel-score-prog {
   font-size: 12px;
