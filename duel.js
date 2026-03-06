@@ -739,11 +739,15 @@ function startRoomListener() {
     }
 
     // ── STATUS TRANSITIONS ──────────────────────────────────────
-    if (room.status === 'question' && room.questionIndex === ds.currentIndex) {
-      // Receive question start timestamp from Firebase (server-aligned timer)
-      if (room.questionStartAt && !du.quizSection?.classList.contains('shown_q' + ds.currentIndex)) {
-        const serverNow = Date.now() + ds.firebaseTimeDelta;
-        ds.questionStartTime = room.questionStartAt - ds.firebaseTimeDelta; // local equivalent
+    if (room.status === 'question' && room.questionIndex != null) {
+      const qi = room.questionIndex;
+      // Use server's questionIndex as source of truth.
+      // This fixes the race where the Firebase event arrives at the guest
+      // BEFORE the guest's countdown callback increments ds.currentIndex,
+      // causing the guard (room.questionIndex === ds.currentIndex) to fail → stuck on rocket.
+      if (room.questionStartAt && !du.quizSection?.classList.contains('shown_q' + qi)) {
+        ds.currentIndex      = qi;   // sync to server
+        ds.questionStartTime = room.questionStartAt - ds.firebaseTimeDelta;
         showQuestion();
       }
     }
@@ -763,12 +767,15 @@ function startRoomListener() {
         du.countdownSection?.classList.add('counting');
         startCountdown(() => {
           du.countdownSection?.classList.remove('counting');
-          ds.currentIndex++;
-          // Note: ds.countingNext stays true here — cleared by showQuestion() once rendered
-          if (ds.currentIndex >= ds.selectedQuestions.length) {
-            finishDuelQuiz();
-          } else {
-            if (ds.role === 'host') {
+          // Only the host advances the index and pushes the next question.
+          // The guest syncs ds.currentIndex from room.questionIndex in the Firebase event.
+          // This prevents the race where the guest's Firebase event arrives before
+          // its own ds.currentIndex++ runs, causing a missed showQuestion() call.
+          if (ds.role === 'host') {
+            ds.currentIndex++;
+            if (ds.currentIndex >= ds.selectedQuestions.length) {
+              finishDuelQuiz();
+            } else {
               ds.roomRef?.update({
                 status:          'question',
                 questionIndex:   ds.currentIndex,
@@ -776,6 +783,7 @@ function startRoomListener() {
               }).catch(() => {});
             }
           }
+          // Note: ds.countingNext stays true here — cleared by showQuestion() once rendered
         });
       }
     }
