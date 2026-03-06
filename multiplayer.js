@@ -54,6 +54,7 @@ const ms = {
   countingNext:        false,
   roomId:              null,
   lectureIds:          [],
+  waitingPlayerCount:  0,
 };
 
 // ── Element References ───────────────────────────────────────────
@@ -331,8 +332,21 @@ function mpRenderWaitingPlayerList(players) {
   });
 
   const count = entries.length;
+  ms.waitingPlayerCount = count;
   if (mu.playerCount) {
     mu.playerCount.textContent = `${count} שחקן${count !== 1 ? 'ים' : ''} בחדר (מקסימום ${MAX_PLAYERS_MP})`;
+  }
+
+  // הפעל/נטרל כפתור "מוכן" לפי מספר שחקנים (רק אם השחקן טרם אישר)
+  const myData = entries.find(([id]) => id === ms.playerId)?.[1];
+  if (mu.readyBtn && !myData?.readyConfirmed) {
+    if (count < 2) {
+      mu.readyBtn.disabled = true;
+      mu.readyBtn.textContent = '⏳ ממתין לשחקנים נוספים...';
+    } else {
+      mu.readyBtn.disabled = false;
+      mu.readyBtn.textContent = '✅ אני מוכן!';
+    }
   }
 }
 
@@ -420,7 +434,7 @@ function mpSetupWaitingRoomUI(roomId) {
   const shareUrl = `${location.origin}${location.pathname}?room=${roomId}`;
   const waText   = encodeURIComponent(`👥 משחק קבוצתי מיקרו כלכלה! לחץ/י כאן כדי להצטרף (בלי צורך להקליד קוד):\n${shareUrl}`);
   if (mu.whatsappShareBtn) mu.whatsappShareBtn.href = `https://wa.me/?text=${waText}`;
-  if (mu.readyBtn) { mu.readyBtn.disabled = false; mu.readyBtn.textContent = '✅ אני מוכן!'; mu.readyBtn.classList.remove('hidden'); }
+  if (mu.readyBtn) { mu.readyBtn.disabled = true; mu.readyBtn.textContent = '⏳ ממתין לשחקנים נוספים...'; mu.readyBtn.classList.remove('hidden'); }
   if (mu.waitingReadyMsg) { mu.waitingReadyMsg.textContent = ''; mu.waitingReadyMsg.classList.add('hidden'); }
 }
 
@@ -535,6 +549,7 @@ function mpAttachWaitingRoomListener() {
 
 // ── Ready ─────────────────────────────────────────────────────────
 function mpConfirmReady() {
+  if (ms.waitingPlayerCount < 2) return; // guard: אי אפשר להתחיל לבד
   if (mu.readyBtn) { mu.readyBtn.disabled = true; mu.readyBtn.textContent = '✅ מוכן!'; }
   if (mu.waitingReadyMsg) { mu.waitingReadyMsg.textContent = 'ממתין לשאר השחקנים...'; mu.waitingReadyMsg.classList.remove('hidden'); }
 
@@ -631,6 +646,16 @@ function mpStartRoomListener() {
       const activeStatuses = ['question', 'feedback', 'countdown_next', 'countdown_start'];
       if (hostData?.connected === false && activeStatuses.includes(room.status)) {
         mpHandleHostDisconnect();
+        return;
+      }
+    }
+
+    // ניתוק אורח — בדוק אם נשאר שחקן אחד בלבד
+    const activeGameStatuses = ['question', 'feedback', 'countdown_next'];
+    if (activeGameStatuses.includes(room.status) && !ms.selfFinished) {
+      const connectedPlayers = allPlayers.filter(([, p]) => p.connected !== false);
+      if (connectedPlayers.length === 1 && connectedPlayers[0][0] === ms.playerId) {
+        mpHandleTechnicalWin();
         return;
       }
     }
@@ -960,6 +985,43 @@ function mpConfirmNext() {
       }
     })
     .catch(e => console.error(e));
+}
+
+// ── Technical Win (last player standing) ────────────────────────────
+function mpHandleTechnicalWin() {
+  if (ms.selfFinished) return;
+  mpStopTimer();
+  ms.selfFinished = true;
+
+  if (ms.roomRef && ms.roomListener) {
+    ms.roomRef.off('value', ms.roomListener);
+    ms.roomListener = null;
+  }
+
+  ms.roomRef?.child(`players/${ms.playerId}`).update({
+    totalScore: ms.totalScore,
+    finished:   true,
+  }).catch(() => {});
+
+  mpShowSection(mu.resultSection);
+  if (mu.winnerBanner) {
+    mu.winnerBanner.innerHTML = '🏆 ניצחון טכני! כל יתר השחקנים התנתקו';
+    mu.winnerBanner.className = 'duel-winner-banner banner-win';
+  }
+  if (mu.finalRanking) {
+    mu.finalRanking.innerHTML = `
+      <div class="mp-ranking-table">
+        <div class="mp-rank-row mp-rank-me mp-rank-first">
+          <span class="mp-rank-medal">🥇</span>
+          <span class="mp-rank-name">${ms.playerName} <span class="mp-me-tag">(אתה)</span></span>
+          <span class="mp-rank-score">${ms.totalScore}</span>
+        </div>
+      </div>`;
+  }
+  if (mu.resultDetails) {
+    mu.resultDetails.innerHTML = '<p style="font-size:13px; text-align:center;">המשחק הסתיים עקב ניתוק כלל יתר השחקנים.</p>';
+  }
+  mpSetStatus('ניצחון טכני — כל יתר השחקנים התנתקו 🏆');
 }
 
 // ── Host Disconnected (non-hosts) ─────────────────────────────────
