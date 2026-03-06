@@ -575,6 +575,15 @@ body[data-theme="dark"] .lobby-tab-panel {
   gap: 12px;
   align-items: end;
 }
+/* Force label + input to stack vertically inside each settings cell */
+.duel-settings-row .field {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+}
+.duel-settings-row .field label {
+  margin-bottom: 6px;
+}
 .duel-setting-input {
   width: 100%;
   padding: 8px 10px;
