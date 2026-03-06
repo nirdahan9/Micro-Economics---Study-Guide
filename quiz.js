@@ -17,7 +17,6 @@ const state = {
   wrongStats: {},
   displayedChoices: {},
   currentCorrectLabel: '',
-  suddenDeathFailed: false,
   currentConfidenceLevel: '',
   currentAnswerIsCorrect: false,
   confidenceStats: {
@@ -94,7 +93,6 @@ const MODE_LABELS = {
   marathon: 'מרתון',
   timer: 'טיימר',
   lives: 'חיים',
-  'sudden-death': 'Sudden Death',
   confidence: 'Confidence Mode',
   'weak-first': 'חלשים קודם',
 };
@@ -569,17 +567,13 @@ function submitCurrentAnswer() {
       updateLivesStatus();
     }
 
-    if (state.mode === 'sudden-death') {
-      state.suddenDeathFailed = true;
-    }
-
     el.feedback.className = 'feedback bad';
     el.feedback.innerHTML = `<strong>לא נכון.</strong><br>התשובה הנכונה היא: ${state.currentCorrectLabel}. ${state.displayedChoices[state.currentCorrectLabel] || ''}<br><br>הסבר: ${q.explanation}`;
   }
 
   state.answered = true;
   el.submitAnswer.disabled = true;
-  if ((state.mode === 'lives' && state.lives <= 0) || (state.mode === 'sudden-death' && state.suddenDeathFailed)) {
+  if (state.mode === 'lives' && state.lives <= 0) {
     el.nextQuestion.textContent = 'לסיכום';
   } else {
     el.nextQuestion.textContent = 'לשאלה הבאה';
@@ -697,11 +691,6 @@ function moveNext() {
     return;
   }
 
-  if (state.mode === 'sudden-death' && state.suddenDeathFailed) {
-    showResults('נפסלת אחרי טעות ראשונה.');
-    return;
-  }
-
   if (state.currentIndex < state.selectedQuestions.length - 1) {
     state.currentIndex += 1;
     renderCurrentQuestion();
@@ -740,7 +729,6 @@ function startQuiz() {
     : 3;
   state.marathonHasTimer = false;
   state.freestyleUnlimited = state.mode === 'freestyle' && !el.questionCount.value.trim();
-  state.suddenDeathFailed = false;
   state.confidenceStats = {
     high: { total: 0, correct: 0 },
     medium: { total: 0, correct: 0 },
