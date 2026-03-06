@@ -555,6 +555,15 @@ async function joinRoom() {
     if (!room) return;
     const players = room.players || {};
     const oppId = Object.keys(players).find(id => id !== ds.playerId);
+
+    // Host disconnected in waiting room
+    if (oppId && players[oppId]?.connected === false) {
+      ds.roomRef.off('value');
+      showSection(du.lobbySection);
+      showError(`${ds.opponentName || 'המארח'} התנתק. החדר נסגר.`);
+      return;
+    }
+
     if (oppId && players[oppId]?.readyConfirmed && du.waitingReadyMsg) {
       ds.oppReadyConfirmed = true;
       du.waitingReadyMsg.textContent = `${ds.opponentName} מוכן! מחכה לעילה...`;
@@ -577,6 +586,27 @@ function listenForOpponent() {
     if (!room) return;
     const players = room.players || {};
     const oppId   = Object.keys(players).find(id => id !== ds.playerId);
+
+    // Guest disconnected in waiting room
+    if (oppId && players[oppId]?.connected === false) {
+      ds.roomRef.off('value');
+      // Reset waiting room UI
+      if (du.waitOppName)  du.waitOppName.textContent  = 'ממתין...';
+      if (du.waitOppBadge) {
+        du.waitOppBadge.textContent = '⏳ טרם הצטרף';
+        du.waitOppBadge.className   = 'duel-player-badge badge-waiting';
+      }
+      if (du.readyBtn) { du.readyBtn.classList.add('hidden'); du.readyBtn.disabled = false; du.readyBtn.textContent = '✅ אני מוכן!'; }
+      if (du.waitingReadyMsg) du.waitingReadyMsg.classList.add('hidden');
+      // Remove disconnected guest from Firebase so a new guest can join
+      ds.roomRef.child(`players/${oppId}`).remove().catch(() => {});
+      ds.roomRef.update({ status: 'waiting', guestId: null }).catch(() => {});
+      setStatus('היריב התנתק — ממתין לשחקן חדש...');
+      showToast(`${players[oppId]?.name || 'היריב'} התנתק — החדר פתוח להצטרפות שחקן חדש`, 'info', 4000);
+      listenForOpponent(); // re-attach listener
+      return;
+    }
+
     if (oppId && players[oppId]) {
       ds.opponentId   = oppId;
       ds.opponentName = players[oppId].name || 'יריב';
