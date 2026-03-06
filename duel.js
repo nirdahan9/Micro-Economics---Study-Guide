@@ -1265,6 +1265,7 @@ async function startRematch(room) {
     updates[`players/${pid}/readyConfirmed`] = false;
     updates[`players/${pid}/nextConfirmed`]  = -1;
     updates[`players/${pid}/rematchReady`]   = false;
+    updates[`players/${pid}/connected`]      = true;  // reset in case onDisconnect fired during prev game
   });
   await ds.roomRef.update(updates).catch(e => console.error(e));
 }
@@ -1323,6 +1324,15 @@ function handleRematchReset(room) {
     du.readyBtn.classList.remove('hidden');
   }
   if (du.waitingReadyMsg) { du.waitingReadyMsg.textContent = ''; du.waitingReadyMsg.classList.add('hidden'); }
+
+  // Re-affirm own connection status and re-register onDisconnect handler.
+  // If onDisconnect fired due to a brief network blip during the previous game,
+  // connected would still be false without this reset.
+  if (ds.roomRef && ds.playerId) {
+    const connRef = ds.roomRef.child(`players/${ds.playerId}/connected`);
+    connRef.set(true).catch(() => {});
+    connRef.onDisconnect().set(false);
+  }
 
   showSection(du.waitingSection);
   showToast(`🔄 סיבוב נוסף — ${ds.questionCount} שאלות! לחץ "אני מוכן" להתחלה`, 'ok', 4000);
