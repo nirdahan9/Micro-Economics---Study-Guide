@@ -573,6 +573,7 @@ body[data-theme="dark"] .lobby-tab-panel {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
+  align-items: end;
 }
 .duel-setting-input {
   width: 100%;
