@@ -1930,3 +1930,32 @@ body[data-theme="dark"] .progress-bar-label.conf-level-label.low    { color: #ff
 @media (max-width: 480px) {
   .progress-bar-label { min-width: 80px; font-size: 11px; }
 }
+
+/* ══════════════════════════════════════════════════
+   TOGGLE-ALL LECTURES BUTTON
+══════════════════════════════════════════════════ */
+
+.toggle-all-btn {
+  display: inline-block;
+  font-size: 13px;
+  padding: 6px 14px;
+  margin-bottom: 10px;
+  border-color: #c5d5f5;
+  background: linear-gradient(135deg, #f0f5ff 0%, #eae8ff 100%);
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.toggle-all-btn:hover {
+  background: linear-gradient(135deg, #e4ecff 0%, #dcdaff 100%);
+}
+
+body[data-theme="dark"] .toggle-all-btn {
+  border-color: #2e3f70;
+  background: linear-gradient(135deg, #1a2540 0%, #1e2555 100%);
+  color: #9abaff;
+}
+
+body[data-theme="dark"] .toggle-all-btn:hover {
+  background: linear-gradient(135deg, #1e2d52 0%, #242a64 100%);
+}

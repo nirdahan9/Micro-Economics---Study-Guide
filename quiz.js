@@ -256,6 +256,14 @@ function parseQuestionsText(text) {
   return { allQuestions, lectures };
 }
 
+function updateToggleAllBtn() {
+  const btn = el.lectureFilters.parentElement?.querySelector('.toggle-all-btn');
+  if (!btn) return;
+  const cbs = el.lectureFilters.querySelectorAll('input[type="checkbox"]');
+  const allChecked = cbs.length > 0 && [...cbs].every(cb => cb.checked);
+  btn.textContent = allChecked ? '✕ בטל בחירת הכל' : '✓ בחר הכל';
+}
+
 function renderLectureFilters() {
   el.lectureFilters.innerHTML = '';
 
@@ -276,6 +284,23 @@ function renderLectureFilters() {
     el.lectureFilters.appendChild(label);
   });
 
+  // Inject toggle-all button above the grid (only once)
+  const parentField = el.lectureFilters.closest?.('.field') || el.lectureFilters.parentElement;
+  if (parentField && !parentField.querySelector('.toggle-all-btn')) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn toggle-all-btn';
+    parentField.insertBefore(btn, el.lectureFilters);
+    btn.addEventListener('click', () => {
+      const cbs = el.lectureFilters.querySelectorAll('input[type="checkbox"]');
+      const allChecked = [...cbs].every(cb => cb.checked);
+      cbs.forEach(cb => { cb.checked = !allChecked; });
+      saveLastLectureSelection(getSelectedLectureIds());
+      updateToggleAllBtn();
+      buildSelection();
+    });
+  }
+
   // Restore last lecture selection for this mode
   const lastSelection = loadLastLectureSelection();
   if (lastSelection && Array.isArray(lastSelection) && lastSelection.length > 0) {
@@ -283,6 +308,8 @@ function renderLectureFilters() {
       cb.checked = lastSelection.includes(cb.value);
     });
   }
+
+  updateToggleAllBtn();
 }
 
 function renderQuestionBank() {
@@ -1084,6 +1111,7 @@ function resetSetup() {
   });
   updateModeUi();
   buildSelection();
+  updateToggleAllBtn();
 }
 
 function applyTheme(theme) {
@@ -1226,7 +1254,7 @@ async function init() {
   el.resetStatsBtn?.addEventListener('click', resetStats);
 
   el.questionCount.addEventListener('input', buildSelection);
-  el.lectureFilters.addEventListener('change', buildSelection);
+  el.lectureFilters.addEventListener('change', () => { buildSelection(); updateToggleAllBtn(); });
   el.timerTotalMinutes?.addEventListener('input', buildSelection);
   el.timerTotalSeconds?.addEventListener('input', buildSelection);
   el.timerPerMinutes?.addEventListener('input', buildSelection);
