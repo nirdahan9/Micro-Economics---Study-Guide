@@ -90,11 +90,21 @@
         <p id="progress"></p>
       </div>
 
-      <div id="progress-bar-wrap" class="progress-bar-wrap">
-        <div class="progress-bar-track">
-          <div id="progress-bar-fill" class="progress-bar-fill"></div>
+      <div id="progress-bar-wrap" class="progress-bars-container">
+        <div class="progress-bar-row">
+          <span class="progress-bar-label">📋 התקדמות:</span>
+          <div class="progress-bar-track">
+            <div id="progress-bar-fill-progress" class="progress-bar-fill session"></div>
+          </div>
+          <span id="progress-bar-text-progress" class="progress-bar-text"></span>
         </div>
-        <span id="progress-bar-text" class="progress-bar-text"></span>
+        <div class="progress-bar-row">
+          <span class="progress-bar-label">🎯 דיוק (ענוי):</span>
+          <div class="progress-bar-track">
+            <div id="progress-bar-fill" class="progress-bar-fill"></div>
+          </div>
+          <span id="progress-bar-text" class="progress-bar-text"></span>
+        </div>
       </div>
 
       <div class="quiz-state-row">

@@ -1888,3 +1888,45 @@ body[data-theme="dark"] #reset-stats-btn {
   .lecture-stat-name { width: 110px; }
   .keyboard-hint { display: none; }
 }
+
+/* ══════════════════════════════════════════════════
+   MULTI-BAR PROGRESS SECTION (weak-first + confidence)
+══════════════════════════════════════════════════ */
+
+.progress-bars-container {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 4px 0 14px;
+}
+
+.progress-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.progress-bar-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+  min-width: 118px;
+  text-align: end;
+}
+
+.progress-bar-fill.session {
+  background: var(--primary);
+}
+
+.progress-bar-label.conf-level-label.high   { color: #117a37; }
+.progress-bar-label.conf-level-label.medium { color: #8a6800; }
+.progress-bar-label.conf-level-label.low    { color: var(--bad); }
+
+body[data-theme="dark"] .progress-bar-label.conf-level-label.high   { color: #4ee084; }
+body[data-theme="dark"] .progress-bar-label.conf-level-label.medium { color: #f5cc55; }
+body[data-theme="dark"] .progress-bar-label.conf-level-label.low    { color: #ff7d7d; }
+
+@media (max-width: 480px) {
+  .progress-bar-label { min-width: 80px; font-size: 11px; }
+}

@@ -73,6 +73,17 @@ const el = {
   progressBarWrap: document.getElementById('progress-bar-wrap'),
   progressBarFill: document.getElementById('progress-bar-fill'),
   progressBarText: document.getElementById('progress-bar-text'),
+  progressBarFillProgress: document.getElementById('progress-bar-fill-progress'),
+  progressBarTextProgress: document.getElementById('progress-bar-text-progress'),
+  confBarRowHigh: document.getElementById('conf-bar-row-high'),
+  confBarFillHigh: document.getElementById('conf-bar-fill-high'),
+  confBarTextHigh: document.getElementById('conf-bar-text-high'),
+  confBarRowMedium: document.getElementById('conf-bar-row-medium'),
+  confBarFillMedium: document.getElementById('conf-bar-fill-medium'),
+  confBarTextMedium: document.getElementById('conf-bar-text-medium'),
+  confBarRowLow: document.getElementById('conf-bar-row-low'),
+  confBarFillLow: document.getElementById('conf-bar-fill-low'),
+  confBarTextLow: document.getElementById('conf-bar-text-low'),
 
   resultScore: document.getElementById('result-score'),
   resultDetails: document.getElementById('result-details'),
@@ -887,18 +898,61 @@ function updateProgressBar() {
     return;
   }
   el.progressBarWrap.classList.remove('hidden');
-  if (state.answeredCount === 0) {
-    if (el.progressBarFill) el.progressBarFill.style.width = '0%';
-    if (el.progressBarText) el.progressBarText.textContent = 'עדיין לא ענית על שאלות בסבב זה';
-    return;
+
+  const totalQ = state.selectedQuestions.length;
+  const answered = state.answeredCount;
+
+  // Bar 1: session progress (answered / total questions)
+  if (el.progressBarFillProgress) {
+    const progPct = totalQ > 0 ? Math.round((answered / totalQ) * 100) : 0;
+    el.progressBarFillProgress.style.width = `${progPct}%`;
   }
-  const pct = Math.round((state.score / state.answeredCount) * 100);
-  if (el.progressBarFill) {
-    el.progressBarFill.style.width = `${pct}%`;
-    el.progressBarFill.className = `progress-bar-fill ${pct >= 80 ? 'good' : pct >= 50 ? 'medium' : 'bad'}`;
+  if (el.progressBarTextProgress) {
+    el.progressBarTextProgress.textContent = totalQ > 0
+      ? `${answered} מתוך ${totalQ} שאלות`
+      : '';
   }
-  if (el.progressBarText) {
-    el.progressBarText.textContent = `${state.score} מתוך ${state.answeredCount} נכון (${pct}%)`;
+
+  // Bar 2: accuracy on answered questions
+  if (answered === 0) {
+    if (el.progressBarFill) {
+      el.progressBarFill.style.width = '0%';
+      el.progressBarFill.className = 'progress-bar-fill';
+    }
+    if (el.progressBarText) el.progressBarText.textContent = 'עדיין לא ענית';
+  } else {
+    const pct = Math.round((state.score / answered) * 100);
+    if (el.progressBarFill) {
+      el.progressBarFill.style.width = `${pct}%`;
+      el.progressBarFill.className = `progress-bar-fill ${pct >= 80 ? 'good' : pct >= 50 ? 'medium' : 'bad'}`;
+    }
+    if (el.progressBarText) {
+      el.progressBarText.textContent = `${state.score}/${answered} (${pct}%)`;
+    }
+  }
+
+  // Bars 3–5: per confidence level (only in confidence mode)
+  if (state.mode === 'confidence') {
+    const levelMap = [
+      { key: 'high',   row: el.confBarRowHigh,   fill: el.confBarFillHigh,   text: el.confBarTextHigh   },
+      { key: 'medium', row: el.confBarRowMedium, fill: el.confBarFillMedium, text: el.confBarTextMedium },
+      { key: 'low',    row: el.confBarRowLow,    fill: el.confBarFillLow,    text: el.confBarTextLow    },
+    ];
+    levelMap.forEach(({ key, row, fill, text }) => {
+      if (!row) return;
+      const { total: lTotal, correct: lCorrect } = state.confidenceStats[key];
+      if (lTotal === 0) {
+        row.classList.add('hidden');
+        return;
+      }
+      row.classList.remove('hidden');
+      const lPct = Math.round((lCorrect / lTotal) * 100);
+      if (fill) {
+        fill.style.width = `${lPct}%`;
+        fill.className = `progress-bar-fill ${lPct >= 80 ? 'good' : lPct >= 50 ? 'medium' : 'bad'}`;
+      }
+      if (text) text.textContent = `${lCorrect}/${lTotal} (${lPct}%)`;
+    });
   }
 }
 

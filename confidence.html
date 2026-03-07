@@ -88,11 +88,42 @@
         <p id="progress"></p>
       </div>
 
-      <div id="progress-bar-wrap" class="progress-bar-wrap">
-        <div class="progress-bar-track">
-          <div id="progress-bar-fill" class="progress-bar-fill"></div>
+      <div id="progress-bar-wrap" class="progress-bars-container">
+        <div class="progress-bar-row">
+          <span class="progress-bar-label">📋 התקדמות:</span>
+          <div class="progress-bar-track">
+            <div id="progress-bar-fill-progress" class="progress-bar-fill session"></div>
+          </div>
+          <span id="progress-bar-text-progress" class="progress-bar-text"></span>
         </div>
-        <span id="progress-bar-text" class="progress-bar-text"></span>
+        <div class="progress-bar-row">
+          <span class="progress-bar-label">🎯 דיוק (ענוי):</span>
+          <div class="progress-bar-track">
+            <div id="progress-bar-fill" class="progress-bar-fill"></div>
+          </div>
+          <span id="progress-bar-text" class="progress-bar-text"></span>
+        </div>
+        <div class="progress-bar-row hidden" id="conf-bar-row-high">
+          <span class="progress-bar-label conf-level-label high">🟢 ביטחון גבוה:</span>
+          <div class="progress-bar-track">
+            <div id="conf-bar-fill-high" class="progress-bar-fill"></div>
+          </div>
+          <span id="conf-bar-text-high" class="progress-bar-text"></span>
+        </div>
+        <div class="progress-bar-row hidden" id="conf-bar-row-medium">
+          <span class="progress-bar-label conf-level-label medium">🟡 ביטחון בינוני:</span>
+          <div class="progress-bar-track">
+            <div id="conf-bar-fill-medium" class="progress-bar-fill"></div>
+          </div>
+          <span id="conf-bar-text-medium" class="progress-bar-text"></span>
+        </div>
+        <div class="progress-bar-row hidden" id="conf-bar-row-low">
+          <span class="progress-bar-label conf-level-label low">🔴 ביטחון נמוך:</span>
+          <div class="progress-bar-track">
+            <div id="conf-bar-fill-low" class="progress-bar-fill"></div>
+          </div>
+          <span id="conf-bar-text-low" class="progress-bar-text"></span>
+        </div>
       </div>
 
       <div class="quiz-state-row">
