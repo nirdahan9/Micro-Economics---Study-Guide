@@ -1047,8 +1047,9 @@ function renderSetupProgressBar() {
     el.setupProgressBarWrap.appendChild(levelWrap);
   }
 
-  // Determine toggle state
-  const showAll = el.setupProgressBarWrap.dataset.showAll === 'true';
+  // Determine states
+  const collapsed = levelWrap.dataset.collapsed === 'true';
+  const showAll   = el.setupProgressBarWrap.dataset.showAll === 'true';
 
   const totalInBank = state.allQuestions.length || 0;
   const levelDefs = [
@@ -1059,31 +1060,41 @@ function renderSetupProgressBar() {
 
   let html = `<div class="setup-level-header">`;
   html += `<span class="setup-level-title">פירוט לפי רמת ביטחון:</span>`;
-  html += `<button type="button" class="btn setup-level-toggle">${showAll ? '🟢 כולל שלא נענו' : '✓ ענוי בלבד'}</button>`;
-  html += `</div>`;
+  html += `<div class="setup-level-header-btns">`;
+  if (!collapsed) {
+    html += `<button type="button" class="btn setup-level-toggle">${showAll ? '🟢 כולל שלא נענו' : '✓ ענוי בלבד'}</button>`;
+  }
+  html += `<button type="button" class="btn setup-level-collapse">${collapsed ? '▶ הצג' : '▼ צמצם'}</button>`;
+  html += `</div></div>`;
 
-  levelDefs.forEach(({ key, label }) => {
-    const lvl = byLevel[key] || { answered: 0, correct: 0 };
-    const denom = showAll ? totalInBank : lvl.answered;
-    let pct = 0, text = 'טרם נענו';
-    if (denom > 0) {
-      pct = Math.round((lvl.correct / denom) * 100);
-      text = showAll
-        ? `${lvl.correct}/${denom} שאלות (${pct}%)`
-        : `${lvl.correct}/${denom} ענוי (${pct}%)`;
-    }
-    const cls = denom > 0 ? (pct >= 80 ? 'good' : pct >= 50 ? 'medium' : 'bad') : '';
-    html += `<div class="setup-level-row">`;
-    html += `<span class="setup-level-label">${label}</span>`;
-    html += `<div class="progress-bar-track"><div class="progress-bar-fill ${cls}" style="width:${pct}%"></div></div>`;
-    html += `<span class="setup-level-text">${text}</span>`;
-    html += `</div>`;
-  });
+  if (!collapsed) {
+    levelDefs.forEach(({ key, label }) => {
+      const lvl = byLevel[key] || { answered: 0, correct: 0 };
+      const denom = showAll ? totalInBank : lvl.answered;
+      let pct = 0, text = 'טרם נענו';
+      if (denom > 0) {
+        pct = Math.round((lvl.correct / denom) * 100);
+        text = showAll
+          ? `${lvl.correct}/${denom} שאלות (${pct}%)`
+          : `${lvl.correct}/${denom} ענוי (${pct}%)`;
+      }
+      const cls = denom > 0 ? (pct >= 80 ? 'good' : pct >= 50 ? 'medium' : 'bad') : '';
+      html += `<div class="setup-level-row">`;
+      html += `<span class="setup-level-label">${label}</span>`;
+      html += `<div class="progress-bar-track"><div class="progress-bar-fill ${cls}" style="width:${pct}%"></div></div>`;
+      html += `<span class="setup-level-text">${text}</span>`;
+      html += `</div>`;
+    });
+  }
 
   levelWrap.innerHTML = html;
 
   levelWrap.querySelector('.setup-level-toggle')?.addEventListener('click', () => {
     el.setupProgressBarWrap.dataset.showAll = showAll ? 'false' : 'true';
+    renderSetupProgressBar();
+  });
+  levelWrap.querySelector('.setup-level-collapse')?.addEventListener('click', () => {
+    levelWrap.dataset.collapsed = collapsed ? 'false' : 'true';
     renderSetupProgressBar();
   });
 }

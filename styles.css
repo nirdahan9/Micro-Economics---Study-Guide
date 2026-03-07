@@ -1665,6 +1665,27 @@ body[data-theme="dark"] .setup-progress-bar-wrap {
   margin-bottom: 2px;
 }
 
+.setup-level-header-btns {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.setup-level-collapse {
+  font-size: 11px;
+  padding: 3px 10px;
+  border-color: #d0d8ee;
+  background: #f5f7ff;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+body[data-theme="dark"] .setup-level-collapse {
+  border-color: #252e50;
+  background: #141a2e;
+  color: #7080aa;
+}
+
 .setup-level-title {
   font-size: 12px;
   font-weight: 600;
