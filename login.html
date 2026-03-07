@@ -24,6 +24,289 @@
 
     <section class="card" id="login-card">
       <div class="auth-tabs">
+        <button class="auth-tab active" id="tab-login"    type="button">כניסה</button>
+        <button class="auth-tab"        id="tab-register" type="button">הרשמה</button>
+        <button class="auth-tab"        id="tab-reset"    type="button">שכחתי סיסמה</button>
+      </div>
+
+      <!-- ── LOGIN FORM ─────────────────────────────────────────────────── -->
+      <form class="auth-form" id="login-form" novalidate>
+        <h2>כניסה לחשבון</h2>
+
+        <div class="field">
+          <label for="login-email">כתובת מייל</label>
+          <input id="login-email" type="email" autocomplete="email"
+                 placeholder="example@gmail.com" />
+        </div>
+
+        <div class="field">
+          <label for="login-password">סיסמה</label>
+          <div class="password-wrap">
+            <input id="login-password" type="password" autocomplete="current-password"
+                   placeholder="הסיסמה שלך" />
+            <button type="button" class="btn btn-show-pw" id="login-show-pw" aria-label="הצג סיסמה">👁</button>
+          </div>
+        </div>
+
+        <p class="auth-error hidden" id="login-error" role="alert"></p>
+
+        <div class="actions">
+          <button class="btn primary" type="submit" id="login-submit">כניסה</button>
+        </div>
+
+        <p class="muted auth-switch-hint">
+          אין לך חשבון עדיין?
+          <button type="button" class="link-btn" id="goto-register">הרשמה כאן</button>
+          &nbsp;·&nbsp;
+          <button type="button" class="link-btn" id="goto-reset">שכחתי סיסמה</button>
+        </p>
+      </form>
+
+      <!-- ── REGISTER FORM ──────────────────────────────────────────────── -->
+      <form class="auth-form hidden" id="register-form" novalidate>
+        <h2>יצירת חשבון חדש</h2>
+
+        <div class="field">
+          <label for="reg-name">שם תצוגה</label>
+          <input id="reg-name" type="text" autocomplete="name"
+                 placeholder="השם שיוצג (לדוגמה: ניר)" />
+        </div>
+
+        <div class="field">
+          <label for="reg-email">כתובת מייל</label>
+          <input id="reg-email" type="email" autocomplete="email"
+                 placeholder="example@gmail.com" />
+        </div>
+
+        <div class="field">
+          <label for="reg-password">סיסמה</label>
+          <div class="password-wrap">
+            <input id="reg-password" type="password" autocomplete="new-password"
+                   placeholder="לפחות 6 תווים" />
+            <button type="button" class="btn btn-show-pw" id="reg-show-pw" aria-label="הצג סיסמה">👁</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="reg-password2">אימות סיסמה</label>
+          <div class="password-wrap">
+            <input id="reg-password2" type="password" autocomplete="new-password"
+                   placeholder="הזן את הסיסמה שוב" />
+            <button type="button" class="btn btn-show-pw" id="reg-show-pw2" aria-label="הצג סיסמה">👁</button>
+          </div>
+        </div>
+
+        <p class="auth-error hidden" id="register-error" role="alert"></p>
+        <p class="auth-ok hidden" id="register-ok" role="status"></p>
+
+        <div class="actions">
+          <button class="btn primary" type="submit" id="register-submit">הרשמה</button>
+        </div>
+
+        <p class="muted auth-switch-hint">
+          כבר יש לך חשבון?
+          <button type="button" class="link-btn" id="goto-login">כניסה כאן</button>
+        </p>
+      </form>
+
+      <!-- ── RESET PASSWORD ─────────────────────────────────────────────── -->
+      <div class="auth-form hidden" id="reset-form">
+        <h2>🔑 איפוס סיסמה</h2>
+        <p class="muted">הזן את כתובת המייל שלך ו-Firebase ישלח לך קישור לאיפוס הסיסמה.</p>
+
+        <div class="field">
+          <label for="reset-email">כתובת מייל</label>
+          <input id="reset-email" type="email" autocomplete="email"
+                 placeholder="example@gmail.com" />
+        </div>
+
+        <p class="auth-error hidden" id="reset-error" role="alert"></p>
+        <p class="auth-ok hidden" id="reset-ok" role="status"></p>
+
+        <div class="actions">
+          <button class="btn primary" type="button" id="reset-submit">שלח קישור לאיפוס</button>
+        </div>
+
+        <p class="muted auth-switch-hint">
+          נזכרת בסיסמה?
+          <button type="button" class="link-btn" id="goto-login2">חזרה לכניסה</button>
+        </p>
+      </div>
+    </section>
+  </main>
+
+  <!-- Firebase Auth SDK (compat v10) -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+  <script src="auth.js"></script>
+  <script>
+    // ── theme ────────────────────────────────────────────────────────────────
+    (function () {
+      const THEME_KEY = 'micro-study-theme';
+      const btn = document.getElementById('theme-toggle');
+      function applyTheme(t) {
+        document.body.setAttribute('data-theme', t);
+        localStorage.setItem(THEME_KEY, t);
+        if (btn) btn.textContent = t === 'dark' ? '☀️ מצב בהיר' : '🌙 מצב כהה';
+      }
+      const saved = localStorage.getItem(THEME_KEY);
+      applyTheme(saved === 'dark' || saved === 'light' ? saved
+        : (window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+      btn?.addEventListener('click', () => {
+        applyTheme(document.body.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+      });
+    })();
+
+    // ── redirect target ──────────────────────────────────────────────────────
+    const params  = new URLSearchParams(window.location.search);
+    const nextUrl = params.get('next') || 'game-modes.html';
+
+    // If already logged in, go straight to destination
+    AUTH.waitForAuth().then(user => {
+      if (user) window.location.replace(nextUrl);
+    });
+
+    // ── tab switching ────────────────────────────────────────────────────────
+    function showTab(tab) {
+      document.getElementById('login-form').classList.toggle('hidden',    tab !== 'login');
+      document.getElementById('register-form').classList.toggle('hidden', tab !== 'register');
+      document.getElementById('reset-form').classList.toggle('hidden',    tab !== 'reset');
+      document.getElementById('tab-login').classList.toggle('active',    tab === 'login');
+      document.getElementById('tab-register').classList.toggle('active', tab === 'register');
+      document.getElementById('tab-reset').classList.toggle('active',    tab === 'reset');
+    }
+
+    document.getElementById('tab-login').addEventListener('click',    () => showTab('login'));
+    document.getElementById('tab-register').addEventListener('click', () => showTab('register'));
+    document.getElementById('tab-reset').addEventListener('click',    () => showTab('reset'));
+    document.getElementById('goto-register').addEventListener('click', () => showTab('register'));
+    document.getElementById('goto-reset').addEventListener('click',    () => showTab('reset'));
+    document.getElementById('goto-login').addEventListener('click',    () => showTab('login'));
+    document.getElementById('goto-login2').addEventListener('click',   () => showTab('login'));
+
+    // ── password visibility toggles ──────────────────────────────────────────
+    function togglePw(inputId, btnId) {
+      const input = document.getElementById(inputId);
+      const btn   = document.getElementById(btnId);
+      btn?.addEventListener('click', () => {
+        input.type = input.type === 'password' ? 'text' : 'password';
+      });
+    }
+    togglePw('login-password', 'login-show-pw');
+    togglePw('reg-password',   'reg-show-pw');
+    togglePw('reg-password2',  'reg-show-pw2');
+
+    // ── login ────────────────────────────────────────────────────────────────
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const errEl = document.getElementById('login-error');
+      const btn   = document.getElementById('login-submit');
+      const email = document.getElementById('login-email').value;
+      const pw    = document.getElementById('login-password').value;
+
+      errEl.classList.add('hidden');
+      btn.disabled = true;
+      btn.textContent = 'מתחבר...';
+
+      const res = await AUTH.login(email, pw);
+      if (res.ok) {
+        window.location.replace(nextUrl);
+      } else {
+        errEl.textContent = res.error;
+        errEl.classList.remove('hidden');
+        btn.disabled = false;
+        btn.textContent = 'כניסה';
+      }
+    });
+
+    // ── register ─────────────────────────────────────────────────────────────
+    document.getElementById('register-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const errEl = document.getElementById('register-error');
+      const okEl  = document.getElementById('register-ok');
+      const btn   = document.getElementById('register-submit');
+      const name  = document.getElementById('reg-name').value.trim();
+      const email = document.getElementById('reg-email').value;
+      const pw    = document.getElementById('reg-password').value;
+      const pw2   = document.getElementById('reg-password2').value;
+
+      errEl.classList.add('hidden');
+      okEl.classList.add('hidden');
+
+      if (!name) {
+        errEl.textContent = 'יש להזין שם תצוגה.';
+        errEl.classList.remove('hidden');
+        return;
+      }
+      if (pw !== pw2) {
+        errEl.textContent = 'הסיסמאות אינן תואמות.';
+        errEl.classList.remove('hidden');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'רושם...';
+
+      const res = await AUTH.register(email, pw, name);
+      if (res.ok) {
+        okEl.textContent = '✅ החשבון נוצר בהצלחה! מעביר אותך...';
+        okEl.classList.remove('hidden');
+        setTimeout(() => window.location.replace(nextUrl), 900);
+      } else {
+        errEl.textContent = res.error;
+        errEl.classList.remove('hidden');
+        btn.disabled = false;
+        btn.textContent = 'הרשמה';
+      }
+    });
+
+    // ── forgot password ───────────────────────────────────────────────────────
+    document.getElementById('reset-submit').addEventListener('click', async () => {
+      const errEl = document.getElementById('reset-error');
+      const okEl  = document.getElementById('reset-ok');
+      const btn   = document.getElementById('reset-submit');
+      const email = document.getElementById('reset-email').value;
+
+      errEl.classList.add('hidden');
+      okEl.classList.add('hidden');
+      btn.disabled = true;
+      btn.textContent = 'שולח...';
+
+      const res = await AUTH.sendPasswordReset(email);
+      if (res.ok) {
+        okEl.textContent = `✅ קישור לאיפוס נשלח ל-${email.trim()}. בדוק את תיבת הדואר (כולל ספאם).`;
+        okEl.classList.remove('hidden');
+      } else {
+        errEl.textContent = res.error;
+        errEl.classList.remove('hidden');
+      }
+      btn.disabled = false;
+      btn.textContent = 'שלח קישור לאיפוס';
+    });
+  </script>
+
+  <footer class="app-version-footer"></footer>
+  <script src="version.js"></script>
+</body>
+</html>
+
+  <main class="container" id="main-content">
+    <nav class="breadcrumb" aria-label="ניווט">
+      <a href="index.html">דף ראשי</a>
+      <span class="bc-sep">›</span>
+      <span>כניסה</span>
+    </nav>
+
+    <header class="card">
+      <div class="header-row">
+        <h1>🔐 כניסה למצבי משחק מתקדמים</h1>
+        <button id="theme-toggle" class="btn" type="button" aria-label="החלפת מצב תצוגה">🌙 מצב כהה</button>
+      </div>
+      <p class="status">המצבים חלשים קודם ו-Confidence Mode דורשים חשבון אישי לשמירת ההתקדמות.</p>
+    </header>
+
+    <section class="card" id="login-card">
+      <div class="auth-tabs">
         <button class="auth-tab active" id="tab-login" type="button">כניסה</button>
         <button class="auth-tab" id="tab-register" type="button">הרשמה</button>
       </div>

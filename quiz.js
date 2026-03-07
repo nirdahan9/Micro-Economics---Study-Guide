@@ -86,12 +86,12 @@ const WEAK_STATS_KEY_PREFIX  = 'micro-study-weak-stats-v1';
 const WRONG_STATS_KEY_PREFIX = 'micro-study-wrong-stats-v1';
 
 function getWeakStatsKey() {
-  const u = (typeof AUTH !== 'undefined') ? AUTH.currentUser() : null;
+  const u = (typeof AUTH !== 'undefined') ? AUTH.currentUser()?.uid : null;
   return `${WEAK_STATS_KEY_PREFIX}__${u || 'global'}`;
 }
 
 function getWrongStatsKey() {
-  const u = (typeof AUTH !== 'undefined') ? AUTH.currentUser() : null;
+  const u = (typeof AUTH !== 'undefined') ? AUTH.currentUser()?.uid : null;
   return `${WRONG_STATS_KEY_PREFIX}__${u || 'global'}`;
 }
 
@@ -314,7 +314,7 @@ function saveWrongStats() {
 const LIFETIME_STATS_KEY_PREFIX = 'micro-study-lifetime-stats-v1';
 
 function getLifetimeStatsKey() {
-  const u = (typeof AUTH !== 'undefined') ? AUTH.currentUser() : null;
+  const u = (typeof AUTH !== 'undefined') ? AUTH.currentUser()?.uid : null;
   return `${LIFETIME_STATS_KEY_PREFIX}__${u || 'global'}`;
 }
 
@@ -925,7 +925,7 @@ async function init() {
   // Auth guard for protected modes
   const PROTECTED_MODES = ['weak-first', 'confidence'];
   if (PROTECTED_MODES.includes(state.mode) && typeof AUTH !== 'undefined') {
-    AUTH.requireAuth(window.location.pathname + window.location.search);
+    await AUTH.requireAuth(window.location.pathname + window.location.search);
     // requireAuth redirects if not logged in; execution continues only when logged in
   }
 
@@ -933,7 +933,7 @@ async function init() {
   if (typeof AUTH !== 'undefined' && el.authStatusBar) {
     const u = AUTH.currentUser();
     if (u && el.authUserDisplay) {
-      el.authUserDisplay.textContent = `👤 ${u}`;
+      el.authUserDisplay.textContent = `👤 ${u.displayName || u.email}`;
     }
     el.logoutBtn?.addEventListener('click', () => {
       AUTH.logout();
