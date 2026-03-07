@@ -16,6 +16,7 @@ const state = {
   quizStartedAt: 0,
   weakStats: {},
   wrongStats: {},
+  answeredStats: {},
   lifetimeStats: { answered: 0, correct: 0, byLevel: { high: {answered:0,correct:0}, medium: {answered:0,correct:0}, low: {answered:0,correct:0} } },
   displayedChoices: {},
   currentCorrectLabel: '',
@@ -103,6 +104,7 @@ const el = {
 const THEME_KEY = 'micro-study-theme';
 const WEAK_STATS_KEY_PREFIX  = 'micro-study-weak-stats-v1';
 const WRONG_STATS_KEY_PREFIX = 'micro-study-wrong-stats-v1';
+const ANSWERED_STATS_KEY_PREFIX = 'micro-study-answered-stats-v1';
 
 function getWeakStatsKey() {
   const u = (typeof AUTH !== 'undefined') ? AUTH.currentUser()?.uid : null;
@@ -112,6 +114,11 @@ function getWeakStatsKey() {
 function getWrongStatsKey() {
   const u = (typeof AUTH !== 'undefined') ? AUTH.currentUser()?.uid : null;
   return `${WRONG_STATS_KEY_PREFIX}__${u || 'global'}`;
+}
+
+function getAnsweredStatsKey() {
+  const u = (typeof AUTH !== 'undefined') ? AUTH.currentUser()?.uid : null;
+  return `${ANSWERED_STATS_KEY_PREFIX}__${u || 'global'}`;
 }
 
 const MODE_LABELS = {
@@ -367,6 +374,18 @@ function saveWrongStats() {
   saveStatsToFirestore();
 }
 
+function loadAnsweredStats() {
+  try {
+    const raw = localStorage.getItem(getAnsweredStatsKey());
+    state.answeredStats = raw ? JSON.parse(raw) : {};
+  } catch { state.answeredStats = {}; }
+}
+
+function saveAnsweredStats() {
+  try { localStorage.setItem(getAnsweredStatsKey(), JSON.stringify(state.answeredStats)); } catch { /* ignore */ }
+  saveStatsToFirestore();
+}
+
 // ── Lecture selection persistence ──────────────────────────────────────────
 const LAST_LECTURE_KEY_PREFIX = 'micro-study-last-lectures-v1';
 
@@ -444,9 +463,11 @@ function resetStats() {
   if (!confirm('האם לאפס את כל הסטטיסטיקות שלך? כל הנתונים על שאלות חלשות ושגיאות יימחקו.')) return;
   state.weakStats = {};
   state.wrongStats = {};
+  state.answeredStats = {};
   state.lifetimeStats = { answered: 0, correct: 0, byLevel: { high: {answered:0,correct:0}, medium: {answered:0,correct:0}, low: {answered:0,correct:0} } };
   saveWeakStats();
   saveWrongStats();
+  saveAnsweredStats();
   saveLifetimeStats();
   // גם מחיקה מ-Firestore
   const db = _getFs();
@@ -539,6 +560,7 @@ async function loadStatsFromFirestore() {
     const data = snap.data();
     if (data.weakStats)    { state.weakStats     = data.weakStats;    localStorage.setItem(getWeakStatsKey(),    JSON.stringify(state.weakStats)); }
     if (data.wrongStats)   { state.wrongStats    = data.wrongStats;   localStorage.setItem(getWrongStatsKey(),   JSON.stringify(state.wrongStats)); }
+    if (data.answeredStats){ state.answeredStats = data.answeredStats; localStorage.setItem(getAnsweredStatsKey(), JSON.stringify(state.answeredStats)); }
     if (data.lifetimeStats){ state.lifetimeStats = data.lifetimeStats; localStorage.setItem(getLifetimeStatsKey(), JSON.stringify(state.lifetimeStats)); }
     renderSetupProgressBar();
     buildSelection();
@@ -557,6 +579,7 @@ function saveStatsToFirestore() {
       await db.collection('userStats').doc(uid).set({
         weakStats:     state.weakStats,
         wrongStats:    state.wrongStats,
+        answeredStats: state.answeredStats,
         lifetimeStats: state.lifetimeStats,
         updatedAt:     firebase.firestore.FieldValue.serverTimestamp(),
       }, { merge: true });
@@ -662,12 +685,27 @@ function buildSelection() {
   saveLastLectureSelection(selectedLectures);
   let filtered = state.allQuestions.filter((q) => selectedLectures.includes(q.lectureId));
 
-  // In weak-first mode, check if user wants wrong-only subset
+  // In weak-first/confidence modes, apply question-set filter
   const questionFilter = [...(el.questionFilterInputs || [])].find((r) => r.checked)?.value || 'all';
-  const wrongOnlyMode = (state.mode === 'weak-first' || state.mode === 'confidence') && questionFilter === 'wrong-only';
+  const isProtected = state.mode === 'weak-first' || state.mode === 'confidence';
+  const wrongOnlyMode = isProtected && questionFilter === 'wrong-only';
+  const unansweredOnlyMode = isProtected && questionFilter === 'unanswered-only';
+  const wrongOrUnansweredMode = isProtected && questionFilter === 'wrong-or-unanswered';
 
   if (wrongOnlyMode) {
     filtered = filtered.filter((q) => Number(state.wrongStats[q.uniqueId] || 0) > 0);
+    filtered = [...filtered].sort((a, b) => {
+      const aw = Number(state.wrongStats[a.uniqueId] || 0);
+      const bw = Number(state.wrongStats[b.uniqueId] || 0);
+      if (bw !== aw) return bw - aw;
+      return Math.random() - 0.5;
+    });
+  } else if (unansweredOnlyMode) {
+    filtered = filtered.filter((q) => !state.answeredStats[q.uniqueId]);
+    filtered = shuffle(filtered);
+  } else if (wrongOrUnansweredMode) {
+    filtered = filtered.filter((q) => !state.answeredStats[q.uniqueId] || Number(state.wrongStats[q.uniqueId] || 0) > 0);
+    // sort: wrong first (by count), then unanswered
     filtered = [...filtered].sort((a, b) => {
       const aw = Number(state.wrongStats[a.uniqueId] || 0);
       const bw = Number(state.wrongStats[b.uniqueId] || 0);
@@ -700,6 +738,10 @@ function buildSelection() {
 
   if (wrongOnlyMode) {
     el.selectionSummary.textContent = `ייבחרו ${selected.length} שאלות מתוך ${filtered.length} שאלות שסומנו כשגויות בעבר. שיעורים: ${lectureText}`;
+  } else if (unansweredOnlyMode) {
+    el.selectionSummary.textContent = `ייבחרו ${selected.length} שאלות שטרם עניתם עליהן. שיעורים: ${lectureText}`;
+  } else if (wrongOrUnansweredMode) {
+    el.selectionSummary.textContent = `ייבחרו ${selected.length} שאלות (שגויות + לא נענו). שיעורים: ${lectureText}`;
   } else {
     el.selectionSummary.textContent = `ייבחרו ${selected.length} שאלות מתוך ${filtered.length} שאלות תואמות. שיעורים: ${lectureText}`;
   }
@@ -831,6 +873,12 @@ function submitCurrentAnswer() {
   const isCorrect = userAnswer === state.currentCorrectLabel;
   state.currentAnswerIsCorrect = isCorrect;
   state.answeredCount += 1;
+
+  // Record that this question was answered (for unanswered filter)
+  if (state.mode === 'weak-first' || state.mode === 'confidence') {
+    state.answeredStats[q.uniqueId] = true;
+    saveAnsweredStats();
+  }
 
   if (state.mode === 'confidence' && confidenceChecked) {
     const level = confidenceChecked.value;
@@ -1350,6 +1398,7 @@ async function init() {
 
   loadWeakStats();
   loadWrongStats();
+  loadAnsweredStats();
   loadLifetimeStats();
   renderSetupProgressBar();
   await loadStatsFromFirestore();  // טוען מהענן ומדריס נתונים מקומיים
