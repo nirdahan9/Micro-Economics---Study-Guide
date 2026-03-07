@@ -10,7 +10,7 @@
 
 | Feature | Description |
 |---|---|
-| 🎮 **8 Game Modes** | Freestyle, Duel, Marathon, Timer, Lives, Weak-First, Sudden Death, Review Wrong, Confidence |
+| 🎮 **6 Game Modes** | Freestyle, Duel, Timer, Lives, Weak-First, Confidence |
 | ⚔️ **Live Multiplayer** | Real-time duel mode via Firebase Realtime Database — create a room, share a link, battle a friend |
 | 📱 **WhatsApp Deep Links** | Share a direct room link that auto-fills the join code for your opponent |
 | 🔄 **Rematch System** | After a duel, both players can request a rematch — confirmed by both, new game starts instantly |
@@ -27,13 +27,10 @@
 |---|---|
 | **Freestyle** | Open-ended practice — answer as many questions as you like at your own pace |
 | **⚔️ Duel** | Real-time 1v1 — same questions, synced timer, speed scoring |
-| **Marathon** | Set a total time limit and answer as many questions as possible |
-| **Timer** | Each question has a countdown — run out of time and the answer is marked wrong |
+| **Timer** | Countdown for the whole session, or per-question — choose minutes and seconds |
 | **Lives** | You have a set number of lives — lose one for every wrong answer |
-| **Weak-First** | Questions you've gotten wrong before appear more often |
-| **Sudden Death** | One wrong answer ends the session |
-| **Review Wrong** | Practice only the questions you've previously answered incorrectly |
-| **Confidence** | Rate your confidence after each answer — tracks self-assessed mastery |
+| **Weak-First** | Questions you’ve gotten wrong before appear more often; includes “Review Wrong” filter |
+| **Confidence** | Rate your confidence before each answer — tracks self-assessed mastery per level |
 
 ---
 
@@ -50,24 +47,29 @@
 
 ```
 Study Guide/
-├── index.html          # Home page with stats and navigation
+├── index.html          # Home page with stats, navigation and per-lecture error chart
 ├── quiz.html           # Freestyle mode
 ├── duel.html           # Real-time multiplayer duel
-├── game-modes.html     # Hub for all additional game modes
-├── marathon.html       # Marathon mode
-├── timer.html          # Timer mode
+├── game-modes.html     # Hub for all game modes
+├── timer.html          # Timer mode (whole-session or per-question)
 ├── lives.html          # Lives mode
-├── weak-first.html     # Weak-first mode
-├── sudden-death.html   # Sudden Death mode
-├── review-wrong.html   # Review wrong answers mode
+├── weak-first.html     # Weak-first mode (includes wrong-only filter)
 ├── confidence.html     # Confidence mode
+├── multiplayer.html    # Group multiplayer (2–6 players)
 ├── materials.html      # Lecture PDFs browser
+├── login.html          # Auth page (email/password)
 │
 ├── styles.css          # Single shared stylesheet (dark mode, all components)
 ├── app.js              # Shared quiz engine (used by most game modes)
-├── quiz.js             # Freestyle-specific logic
-├── duel.js             # Firebase multiplayer logic (~1200 lines)
+├── quiz.js             # Full quiz engine (all game mode logic, ~1100 lines)
+├── duel.js             # Firebase multiplayer duel logic (~1200 lines)
+├── multiplayer.js      # Group multiplayer logic
 ├── materials.js        # PDF file browser renderer
+├── auth.js             # Firebase Auth module
+├── version.js          # App version footer
+│
+├── manifest.json       # PWA manifest
+├── sw.js               # Service worker (offline support)
 │
 ├── questions-data.js   # 118 questions in custom text format
 ├── documents-data.js   # PDF file metadata (name + path)

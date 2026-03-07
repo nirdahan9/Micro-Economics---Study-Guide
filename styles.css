@@ -1726,3 +1726,165 @@ body[data-theme="dark"] .setup-progress-bar-wrap {
   line-height: 1;
   margin-bottom: 4px;
 }
+
+/* ══════════════════════════════════════════════════
+   KEYBOARD HINT
+══════════════════════════════════════════════════ */
+
+.keyboard-hint {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 6px 0 0;
+  opacity: 0.72;
+  user-select: none;
+}
+
+/* ══════════════════════════════════════════════════
+   STREAK COUNTER  (re-uses .meta base style)
+══════════════════════════════════════════════════ */
+
+#streak-status {
+  color: var(--accent) !important;
+  font-size: 15px !important;
+  animation: streak-pop 0.35s ease;
+}
+
+@keyframes streak-pop {
+  0%, 100% { transform: scale(1); }
+  50%       { transform: scale(1.22); }
+}
+
+/* ══════════════════════════════════════════════════
+   WRONG ANSWERS DETAILS (result section)
+══════════════════════════════════════════════════ */
+
+.wrong-answers-details {
+  margin: 14px 0 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.wrong-answers-details > summary {
+  padding: 10px 14px;
+  cursor: pointer;
+  font-weight: 600;
+  background: linear-gradient(135deg, #fff3f3 0%, #ffe9e9 100%);
+  color: var(--bad);
+  list-style: none;
+  user-select: none;
+}
+
+.wrong-answers-details > summary::-webkit-details-marker { display: none; }
+
+body[data-theme="dark"] .wrong-answers-details > summary {
+  background: linear-gradient(135deg, #3a1f1f 0%, #4a2525 100%);
+}
+
+.wrong-answers-details[open] > summary {
+  border-bottom: 1px solid var(--border);
+}
+
+.wrong-answer-item {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.wrong-answer-item:last-child { border-bottom: none; }
+
+.wa-user    { color: var(--bad);   display: block; }
+.wa-correct { color: var(--ok);    display: block; }
+.wa-explain { color: var(--muted); display: block; font-size: 13px; }
+
+/* ══════════════════════════════════════════════════
+   CONFIDENCE RESULT CHART
+══════════════════════════════════════════════════ */
+
+.conf-chart {
+  margin: 14px 0 0;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: linear-gradient(135deg, #f7f3ff 0%, #f0ecff 100%);
+}
+
+body[data-theme="dark"] .conf-chart {
+  background: linear-gradient(135deg, #221b3f 0%, #1a1e3a 100%);
+}
+
+.conf-chart-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 6px 0;
+}
+
+.conf-chart-label {
+  width: 90px;
+  font-size: 13px;
+  font-weight: 600;
+  flex-shrink: 0;
+  text-align: end;
+}
+
+.conf-chart-text {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+  min-width: 80px;
+}
+
+/* ══════════════════════════════════════════════════
+   RESET STATS BUTTON
+══════════════════════════════════════════════════ */
+
+#reset-stats-btn {
+  border-color: #f3c6c6;
+  background: linear-gradient(135deg, #fff3f3 0%, #ffe9e9 100%);
+  color: var(--bad);
+  font-size: 13px;
+  padding: 8px 12px;
+}
+
+body[data-theme="dark"] #reset-stats-btn {
+  border-color: #844848;
+  background: linear-gradient(135deg, #3a1f1f 0%, #4a2525 100%);
+  color: #ff9a9a;
+}
+
+/* ══════════════════════════════════════════════════
+   LECTURE STATS (index.html)
+══════════════════════════════════════════════════ */
+
+.lecture-stat-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 6px 0;
+  font-size: 14px;
+}
+
+.lecture-stat-name {
+  width: 170px;
+  flex-shrink: 0;
+  font-weight: 500;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lecture-stat-text {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+  min-width: 96px;
+}
+
+@media (max-width: 480px) {
+  .lecture-stat-name { width: 110px; }
+  .keyboard-hint { display: none; }
+}

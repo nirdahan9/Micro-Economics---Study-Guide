@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>מדריך הלמידה - מיקרו כלכלה</title>
   <link rel="stylesheet" href="styles.css" />
+  <link rel="manifest" href="manifest.json" />
 </head>
 <body>
   <main class="container" id="main-content">
@@ -56,6 +57,12 @@
         </article>
       </div>
     </section>
+
+    <section class="card hidden" id="lecture-stats-section">
+      <h2>📊 שגיאות לפי שיעור</h2>
+      <p class="muted" id="lecture-stats-note" style="font-size:13px;margin-bottom:8px"></p>
+      <div id="lecture-stats-list"></div>
+    </section>
   </main>
 
   <script>
@@ -98,6 +105,87 @@
         requestAnimationFrame(step);
       });
     })();
+
+    function renderLectureStats() {
+      var section = document.getElementById('lecture-stats-section');
+      var list = document.getElementById('lecture-stats-list');
+      var note = document.getElementById('lecture-stats-note');
+      if (!section || !list || !window.QUESTIONS_TEXT) return;
+
+      var userId = localStorage.getItem('micro-study-current-uid') || 'global';
+      var wrongStats = {};
+      try {
+        var raw = localStorage.getItem('micro-study-wrong-stats-v1__' + userId);
+        wrongStats = raw ? JSON.parse(raw) : {};
+      } catch (e) {}
+
+      var hasData = Object.keys(wrongStats).some(function(k) { return (wrongStats[k] || 0) > 0; });
+      if (!hasData) return;
+
+      // Simple parse of QUESTIONS_TEXT to get lecture info
+      var lectureTitles = {};
+      var lectureQuestionCounts = {};
+      var lectureErrors = {};
+      var currentLectureId = null;
+
+      window.QUESTIONS_TEXT.split('\n').forEach(function(rawLine) {
+        var line = rawLine.trim();
+        var lid = line.match(/^LECTURE_ID:\s*["']?(\d+)["']?/);
+        if (lid) { currentLectureId = lid[1]; return; }
+        var ltitle = line.match(/^LECTURE_TITLE:\s*(.+)/);
+        if (ltitle && currentLectureId) {
+          lectureTitles[currentLectureId] = ltitle[1].replace(/^["']|["']$/g, '').trim();
+          return;
+        }
+        if (line.match(/^Q\d+_\d+:$/) && currentLectureId) {
+          lectureQuestionCounts[currentLectureId] = (lectureQuestionCounts[currentLectureId] || 0) + 1;
+        }
+      });
+
+      // Extract errors per lecture from wrongStats keys (format: Q1_5__5__23)
+      Object.keys(wrongStats).forEach(function(quid) {
+        if ((wrongStats[quid] || 0) <= 0) return;
+        var parts = quid.split('__');
+        if (parts.length >= 2) {
+          var lectureId = parts[1];
+          lectureErrors[lectureId] = (lectureErrors[lectureId] || 0) + 1;
+        }
+      });
+
+      var lectureIds = Object.keys(lectureQuestionCounts).sort(function(a, b) { return Number(a) - Number(b); });
+      var hasAnyErrors = lectureIds.some(function(id) { return (lectureErrors[id] || 0) > 0; });
+      if (!hasAnyErrors) return;
+
+      section.classList.remove('hidden');
+      if (note) {
+        note.textContent = userId === 'global'
+          ? 'שגיאות שנרשמו במכשיר זה (ללא התחברות) — לפי שיעור:'
+          : 'שגיאות החשבון שלך — לפי שיעור:';
+      }
+
+      list.innerHTML = '';
+      lectureIds.forEach(function(id) {
+        var total = lectureQuestionCounts[id] || 0;
+        var errors = lectureErrors[id] || 0;
+        if (total === 0 || errors === 0) return;
+        var pct = Math.round(errors / total * 100);
+        var cls = pct < 30 ? 'medium' : pct < 60 ? 'medium' : 'bad';
+        var title = lectureTitles[id] ? (' — ' + lectureTitles[id]) : '';
+        var row = document.createElement('div');
+        row.className = 'lecture-stat-row';
+        row.innerHTML =
+          '<span class="lecture-stat-name">שיעור ' + Number(id) + title + '</span>' +
+          '<div class="progress-bar-track" style="flex:1;min-width:60px">' +
+          '<div class="progress-bar-fill ' + cls + '" style="width:' + pct + '%"></div></div>' +
+          '<span class="lecture-stat-text">' + errors + '/' + total + ' שגיאות (' + pct + '%)</span>';
+        list.appendChild(row);
+      });
+    }
+  </script>
+  <script src="questions-data.js"></script>
+  <script>
+    renderLectureStats();
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function(){});
   </script>
   <footer class="app-version-footer"></footer>
   <script src="version.js"></script>

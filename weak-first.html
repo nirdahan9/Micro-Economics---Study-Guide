@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>חלשים קודם - מיקרו כלכלה</title>
   <link rel="stylesheet" href="styles.css" />
+  <link rel="manifest" href="manifest.json" />
 </head>
 <body data-mode="weak-first">
   <script>
@@ -77,6 +78,7 @@
       <div class="actions">
         <button id="start-quiz" class="btn primary">התחל תרגול</button>
         <button id="reset-setup" class="btn">איפוס בחירה</button>
+        <button id="reset-stats-btn" class="btn" type="button">🗑️ איפוס סטטיסטיקות</button>
       </div>
 
       <p id="selection-summary" class="muted"></p>
@@ -99,12 +101,14 @@
         <p id="mode-status" class="meta"></p>
         <p id="timer-status" class="meta hidden"></p>
         <p id="lives-status" class="meta hidden"></p>
+        <p id="streak-status" class="meta hidden"></p>
       </div>
 
       <div id="question-meta" class="meta"></div>
       <h3 id="question-text" class="question"></h3>
 
       <form id="answers-form" class="choices"></form>
+      <p id="keyboard-hint" class="keyboard-hint">💡 מקשים: 1–4 לבחירה · Enter לאישור</p>
 
       <div class="actions">
         <button id="submit-answer" class="btn primary" type="button">בדיקת תשובה</button>
@@ -119,6 +123,7 @@
       <h2>סיכום תרגול</h2>
       <p id="result-score"></p>
       <p id="result-details" class="muted"></p>
+      <div id="result-wrong-list"></div>
       <div class="actions">
         <button id="restart-quiz" class="btn primary">תרגול נוסף</button>
       </div>
@@ -133,5 +138,6 @@
   <script src="quiz.js"></script>
   <footer class="app-version-footer"></footer>
   <script src="version.js"></script>
+  <script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function(){});</script>
 </body>
 </html>

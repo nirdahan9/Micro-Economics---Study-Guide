@@ -26,6 +26,8 @@ const state = {
     medium: { total: 0, correct: 0 },
     low: { total: 0, correct: 0 },
   },
+  streak: 0,
+  wrongAnswersThisSession: [],
 };
 
 const el = {
@@ -79,6 +81,11 @@ const el = {
   bankSummary: document.getElementById('bank-summary'),
   questionBank: document.getElementById('question-bank'),
   themeToggle: document.getElementById('theme-toggle'),
+  streakStatus: document.getElementById('streak-status'),
+  keyboardHint: document.getElementById('keyboard-hint'),
+  resultWrongList: document.getElementById('result-wrong-list'),
+  resultConfidenceChart: document.getElementById('result-confidence-chart'),
+  resetStatsBtn: document.getElementById('reset-stats-btn'),
 };
 
 const THEME_KEY = 'micro-study-theme';
@@ -257,6 +264,14 @@ function renderLectureFilters() {
     label.appendChild(text);
     el.lectureFilters.appendChild(label);
   });
+
+  // Restore last lecture selection for this mode
+  const lastSelection = loadLastLectureSelection();
+  if (lastSelection && Array.isArray(lastSelection) && lastSelection.length > 0) {
+    el.lectureFilters.querySelectorAll('input[type="checkbox"]').forEach((cb) => {
+      cb.checked = lastSelection.includes(cb.value);
+    });
+  }
 }
 
 function renderQuestionBank() {
@@ -309,6 +324,126 @@ function loadWrongStats() {
 
 function saveWrongStats() {
   localStorage.setItem(getWrongStatsKey(), JSON.stringify(state.wrongStats));
+}
+
+// ── Lecture selection persistence ──────────────────────────────────────────
+const LAST_LECTURE_KEY_PREFIX = 'micro-study-last-lectures-v1';
+
+function getLastLectureKey() {
+  return `${LAST_LECTURE_KEY_PREFIX}__${state.mode || 'global'}`;
+}
+
+function saveLastLectureSelection(ids) {
+  try { localStorage.setItem(getLastLectureKey(), JSON.stringify(ids)); } catch { /* ignore */ }
+}
+
+function loadLastLectureSelection() {
+  try {
+    const raw = localStorage.getItem(getLastLectureKey());
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+// ── Streak display ─────────────────────────────────────────────────────────
+function updateStreakDisplay() {
+  if (!el.streakStatus) return;
+  if (state.streak >= 3) {
+    el.streakStatus.textContent = `🔥 ${state.streak} ברצף!`;
+    el.streakStatus.classList.remove('hidden');
+  } else {
+    el.streakStatus.classList.add('hidden');
+  }
+}
+
+// ── Wrong answers this session ─────────────────────────────────────────────
+function renderWrongAnswersList() {
+  if (!el.resultWrongList) return;
+  el.resultWrongList.innerHTML = '';
+  if (!state.wrongAnswersThisSession.length) return;
+  const details = document.createElement('details');
+  details.className = 'wrong-answers-details';
+  const summary = document.createElement('summary');
+  summary.textContent = `❌ ${state.wrongAnswersThisSession.length} שגיאות בסשן זה — לחץ לפירוט`;
+  details.appendChild(summary);
+  state.wrongAnswersThisSession.forEach((item, i) => {
+    const div = document.createElement('div');
+    div.className = 'wrong-answer-item';
+    div.innerHTML =
+      `<strong>${i + 1}. ${item.question.text}</strong><br>` +
+      `<span class="wa-user">תשובתך: ${item.userAnswer}</span><br>` +
+      `<span class="wa-correct">✅ נכון: ${item.correctLabel}. ${item.correctText}</span><br>` +
+      `<span class="wa-explain">💡 ${item.question.explanation}</span>`;
+    details.appendChild(div);
+  });
+  el.resultWrongList.appendChild(details);
+}
+
+// ── Confidence result chart ────────────────────────────────────────────────
+function renderConfidenceChart() {
+  if (!el.resultConfidenceChart || state.mode !== 'confidence') return;
+  const labelMap = { high: '🟢 גבוה', medium: '🟡 בינוני', low: '🔴 נמוך' };
+  const rows = ['high', 'medium', 'low'].map((key) => {
+    const { total, correct } = state.confidenceStats[key];
+    if (!total) return '';
+    const pct = Math.round((correct / total) * 100);
+    const cls = pct >= 80 ? 'good' : pct >= 50 ? 'medium' : 'bad';
+    return `<div class="conf-chart-row">` +
+      `<span class="conf-chart-label">${labelMap[key]}</span>` +
+      `<div class="progress-bar-track" style="flex:1;min-width:60px">` +
+      `<div class="progress-bar-fill ${cls}" style="width:${pct}%"></div></div>` +
+      `<span class="conf-chart-text">${correct}/${total} (${pct}%)</span></div>`;
+  }).filter(Boolean).join('');
+  el.resultConfidenceChart.innerHTML = rows
+    ? `<div class="conf-chart"><p class="label" style="margin-bottom:8px">📊 דיוק לפי רמת ביטחון:</p>${rows}</div>`
+    : '';
+}
+
+// ── Reset stats ────────────────────────────────────────────────────────────
+function resetStats() {
+  if (!confirm('האם לאפס את כל הסטטיסטיקות שלך? כל הנתונים על שאלות חלשות ושגיאות יימחקו.')) return;
+  state.weakStats = {};
+  state.wrongStats = {};
+  saveWeakStats();
+  saveWrongStats();
+  buildSelection();
+  if (el.selectionSummary) {
+    el.selectionSummary.textContent += ' | ✅ הסטטיסטיקות אופסו.';
+  }
+}
+
+// ── Keyboard navigation ────────────────────────────────────────────────────
+let _keydownHandler = null;
+
+function attachKeyboardNav() {
+  detachKeyboardNav();
+  _keydownHandler = function (e) {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+    if (state.answered) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (!el.nextQuestion.classList.contains('hidden')) el.nextQuestion.click();
+      }
+      return;
+    }
+    const keyMap = { '1': 0, '2': 1, '3': 2, '4': 3 };
+    if (keyMap[e.key] !== undefined) {
+      e.preventDefault();
+      const choices = el.answersForm.querySelectorAll('input[name="answer"]');
+      if (choices[keyMap[e.key]]) choices[keyMap[e.key]].checked = true;
+    }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (!el.submitAnswer.disabled) el.submitAnswer.click();
+    }
+  };
+  document.addEventListener('keydown', _keydownHandler);
+}
+
+function detachKeyboardNav() {
+  if (_keydownHandler) {
+    document.removeEventListener('keydown', _keydownHandler);
+    _keydownHandler = null;
+  }
 }
 
 const LIFETIME_STATS_KEY_PREFIX = 'micro-study-lifetime-stats-v1';
@@ -405,6 +540,15 @@ function handlePerQuestionTimeout() {
   el.submitAnswer.disabled = true;
   el.nextQuestion.textContent = 'לשאלה הבאה';
   el.nextQuestion.classList.remove('hidden');
+
+  state.streak = 0;
+  updateStreakDisplay();
+  state.wrongAnswersThisSession.push({
+    question: q,
+    userAnswer: 'לא ענית (פג זמן)',
+    correctLabel: state.currentCorrectLabel,
+    correctText: state.displayedChoices[state.currentCorrectLabel] || '',
+  });
 }
 
 function updateLivesStatus() {
@@ -415,6 +559,7 @@ function updateLivesStatus() {
 
 function buildSelection() {
   const selectedLectures = getSelectedLectureIds();
+  saveLastLectureSelection(selectedLectures);
   let filtered = state.allQuestions.filter((q) => selectedLectures.includes(q.lectureId));
 
   // In weak-first mode, check if user wants wrong-only subset
@@ -555,6 +700,7 @@ function renderCurrentQuestion() {
   });
 
   updateProgressBar();
+  attachKeyboardNav();
 }
 
 function submitCurrentAnswer() {
@@ -599,6 +745,7 @@ function submitCurrentAnswer() {
 
   if (isCorrect) {
     state.score += 1;
+    state.streak += 1;
     el.feedback.className = 'feedback ok';
     el.feedback.innerHTML = `<strong>נכון!</strong><br>הסבר: ${q.explanation}`;
   } else {
@@ -615,7 +762,15 @@ function submitCurrentAnswer() {
 
     el.feedback.className = 'feedback bad';
     el.feedback.innerHTML = `<strong>לא נכון.</strong><br>התשובה הנכונה היא: ${state.currentCorrectLabel}. ${state.displayedChoices[state.currentCorrectLabel] || ''}<br><br>הסבר: ${q.explanation}`;
+    state.streak = 0;
+    state.wrongAnswersThisSession.push({
+      question: q,
+      userAnswer: state.displayedChoices[userAnswer] || userAnswer,
+      correctLabel: state.currentCorrectLabel,
+      correctText: state.displayedChoices[state.currentCorrectLabel] || '',
+    });
   }
+  updateStreakDisplay();
 
   // Track lifetime accuracy for protected modes
   if (state.mode === 'weak-first' || state.mode === 'confidence') {
@@ -648,6 +803,7 @@ function submitCurrentAnswer() {
 
 function showResults(reason = '') {
   stopTimer();
+  detachKeyboardNav();
   el.quizSection.classList.add('hidden');
   el.resultSection.classList.remove('hidden');
 
@@ -655,7 +811,21 @@ function showResults(reason = '') {
   const percent = total ? Math.round((state.score / total) * 100) : 0;
   const durationSec = Math.max(0, Math.floor((Date.now() - state.quizStartedAt) / 1000));
 
-  el.resultScore.textContent = `ציון: ${state.score} מתוך ${total} (${percent}%).`;
+  // Animated score counter
+  if (state.answeredCount > 0) {
+    const dur = 700;
+    const startTime = performance.now();
+    const targetScore = state.score;
+    const targetPct = percent;
+    (function step(now) {
+      const t = Math.min((now - startTime) / dur, 1);
+      const ease = 1 - Math.pow(1 - t, 3);
+      el.resultScore.textContent = `ציון: ${Math.round(ease * targetScore)} מתוך ${total} (${Math.round(ease * targetPct)}%).`;
+      if (t < 1) requestAnimationFrame(step);
+    })(startTime);
+  } else {
+    el.resultScore.textContent = `ציון: ${state.score} מתוך ${total} (${percent}%).`;
+  }
   const details = [`משך: ${formatDuration(durationSec)}`];
   if (reason) details.push(reason);
   if (state.mode === 'lives') details.push(`חיים שנותרו: ${Math.max(0, state.lives)}`);
@@ -680,6 +850,9 @@ function showResults(reason = '') {
 
   el.resultDetails.textContent = `${details.join(' | ')}. ניתן להתחיל תרגול נוסף עם בחירה חדשה של מספר שאלות ושיעורים.`;
 
+  renderConfidenceChart();
+  renderWrongAnswersList();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function renderSetupProgressBar() {
@@ -783,6 +956,10 @@ function moveNext() {
 
 function startQuiz() {
   stopTimer();
+
+  state.streak = 0;
+  state.wrongAnswersThisSession = [];
+  if (el.streakStatus) el.streakStatus.classList.add('hidden');
 
   const selected = buildSelection();
   const questionFilter = [...(el.questionFilterInputs || [])].find((r) => r.checked)?.value || 'all';
@@ -941,6 +1118,12 @@ async function init() {
     });
   }
 
+  // Persist uid so index.html can look up per-user stats without Firebase
+  if (typeof AUTH !== 'undefined') {
+    const _u = AUTH.currentUser();
+    if (_u) localStorage.setItem('micro-study-current-uid', _u.uid);
+  }
+
   loadWeakStats();
   loadWrongStats();
   loadLifetimeStats();
@@ -986,6 +1169,7 @@ async function init() {
   });
 
   el.confidenceChangeConfirm?.addEventListener('click', confirmConfidenceChange);
+  el.resetStatsBtn?.addEventListener('click', resetStats);
 
   el.questionCount.addEventListener('input', buildSelection);
   el.lectureFilters.addEventListener('change', buildSelection);
