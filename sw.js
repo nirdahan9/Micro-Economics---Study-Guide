@@ -1,4 +1,5 @@
-// Service Worker — self-destruct: clears all caches, passes all fetches to network
+// Service Worker — no-op: clears all caches, does NOT intercept any requests.
+// All fetches go directly through the browser (no SW caching at all).
 self.addEventListener('install', () => self.skipWaiting());
 
 self.addEventListener('activate', (event) => {
@@ -9,7 +10,4 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Pass everything straight to the network — no caching
-self.addEventListener('fetch', (event) => {
-  event.respondWith(fetch(event.request));
-});
+// No 'fetch' handler — browser handles all requests normally.
