@@ -16,7 +16,7 @@ const state = {
   quizStartedAt: 0,
   weakStats: {},
   wrongStats: {},
-  lifetimeStats: { answered: 0, correct: 0 },
+  lifetimeStats: { answered: 0, correct: 0, byLevel: { high: {answered:0,correct:0}, medium: {answered:0,correct:0}, low: {answered:0,correct:0} } },
   displayedChoices: {},
   currentCorrectLabel: '',
   currentConfidenceLevel: '',
@@ -444,7 +444,7 @@ function resetStats() {
   if (!confirm('האם לאפס את כל הסטטיסטיקות שלך? כל הנתונים על שאלות חלשות ושגיאות יימחקו.')) return;
   state.weakStats = {};
   state.wrongStats = {};
-  state.lifetimeStats = { answered: 0, correct: 0 };
+  state.lifetimeStats = { answered: 0, correct: 0, byLevel: { high: {answered:0,correct:0}, medium: {answered:0,correct:0}, low: {answered:0,correct:0} } };
   saveWeakStats();
   saveWrongStats();
   saveLifetimeStats();
@@ -504,9 +504,16 @@ function getLifetimeStatsKey() {
 function loadLifetimeStats() {
   try {
     const raw = localStorage.getItem(getLifetimeStatsKey());
-    state.lifetimeStats = raw ? JSON.parse(raw) : { answered: 0, correct: 0 };
+    const parsed = raw ? JSON.parse(raw) : null;
+    if (parsed) {
+      // migrate: ensure byLevel exists
+      if (!parsed.byLevel) parsed.byLevel = { high: {answered:0,correct:0}, medium: {answered:0,correct:0}, low: {answered:0,correct:0} };
+      state.lifetimeStats = parsed;
+    } else {
+      state.lifetimeStats = { answered: 0, correct: 0, byLevel: { high: {answered:0,correct:0}, medium: {answered:0,correct:0}, low: {answered:0,correct:0} } };
+    }
   } catch {
-    state.lifetimeStats = { answered: 0, correct: 0 };
+    state.lifetimeStats = { answered: 0, correct: 0, byLevel: { high: {answered:0,correct:0}, medium: {answered:0,correct:0}, low: {answered:0,correct:0} } };
   }
 }
 
@@ -869,6 +876,13 @@ function submitCurrentAnswer() {
   if (state.mode === 'weak-first' || state.mode === 'confidence') {
     state.lifetimeStats.answered += 1;
     if (isCorrect) state.lifetimeStats.correct += 1;
+    // Track per confidence-level lifetime stats
+    if (state.mode === 'confidence' && state.currentConfidenceLevel) {
+      const lvl = state.currentConfidenceLevel;
+      if (!state.lifetimeStats.byLevel) state.lifetimeStats.byLevel = { high: {answered:0,correct:0}, medium: {answered:0,correct:0}, low: {answered:0,correct:0} };
+      state.lifetimeStats.byLevel[lvl].answered += 1;
+      if (isCorrect) state.lifetimeStats.byLevel[lvl].correct += 1;
+    }
     saveLifetimeStats();
     renderSetupProgressBar();
   }
@@ -957,19 +971,73 @@ function renderSetupProgressBar() {
   }
   const { answered, correct } = state.lifetimeStats;
   el.setupProgressBarWrap.classList.remove('hidden');
+
+  // Main lifetime bar
   if (answered === 0) {
     if (el.setupProgressBarFill) el.setupProgressBarFill.style.width = '0%';
     if (el.setupProgressBarText) el.setupProgressBarText.textContent = 'עדיין לא ענית על שאלות במצב זה';
-    return;
+  } else {
+    const pct = Math.round((correct / answered) * 100);
+    if (el.setupProgressBarFill) {
+      el.setupProgressBarFill.style.width = `${pct}%`;
+      el.setupProgressBarFill.className = `progress-bar-fill ${pct >= 80 ? 'good' : pct >= 50 ? 'medium' : 'bad'}`;
+    }
+    if (el.setupProgressBarText) {
+      el.setupProgressBarText.textContent = `סה"כ כל הזמנים: ${correct}/${answered} (${pct}%)`;
+    }
   }
-  const pct = Math.round((correct / answered) * 100);
-  if (el.setupProgressBarFill) {
-    el.setupProgressBarFill.style.width = `${pct}%`;
-    el.setupProgressBarFill.className = `progress-bar-fill ${pct >= 80 ? 'good' : pct >= 50 ? 'medium' : 'bad'}`;
+
+  // Per-level breakdown (confidence mode only)
+  if (state.mode !== 'confidence') return;
+  const byLevel = state.lifetimeStats.byLevel || {};
+
+  // Inject per-level container once
+  let levelWrap = el.setupProgressBarWrap.querySelector('.setup-level-bars');
+  if (!levelWrap) {
+    levelWrap = document.createElement('div');
+    levelWrap.className = 'setup-level-bars';
+    el.setupProgressBarWrap.appendChild(levelWrap);
   }
-  if (el.setupProgressBarText) {
-    el.setupProgressBarText.textContent = `סה"כ כל הזמנים: ${correct} מתוך ${answered} נכון (${pct}%)`;
-  }
+
+  // Determine toggle state
+  const showAll = el.setupProgressBarWrap.dataset.showAll === 'true';
+
+  const totalInBank = state.allQuestions.length || 0;
+  const levelDefs = [
+    { key: 'high',   label: '🟢 ביטחון גבוהה' },
+    { key: 'medium', label: '🟡 ביטחון בינוני' },
+    { key: 'low',    label: '🔴 ביטחון נמוך' },
+  ];
+
+  let html = `<div class="setup-level-header">`;
+  html += `<span class="setup-level-title">פירוט לפי רמת ביטחון:</span>`;
+  html += `<button type="button" class="btn setup-level-toggle">${showAll ? '🟢 כולל שלא נענו' : '✓ ענוי בלבד'}</button>`;
+  html += `</div>`;
+
+  levelDefs.forEach(({ key, label }) => {
+    const lvl = byLevel[key] || { answered: 0, correct: 0 };
+    const denom = showAll ? totalInBank : lvl.answered;
+    let pct = 0, text = 'טרם נענו';
+    if (denom > 0) {
+      pct = Math.round((lvl.correct / denom) * 100);
+      text = showAll
+        ? `${lvl.correct}/${denom} שאלות (${pct}%)`
+        : `${lvl.correct}/${denom} ענוי (${pct}%)`;
+    }
+    const cls = denom > 0 ? (pct >= 80 ? 'good' : pct >= 50 ? 'medium' : 'bad') : '';
+    html += `<div class="setup-level-row">`;
+    html += `<span class="setup-level-label">${label}</span>`;
+    html += `<div class="progress-bar-track"><div class="progress-bar-fill ${cls}" style="width:${pct}%"></div></div>`;
+    html += `<span class="setup-level-text">${text}</span>`;
+    html += `</div>`;
+  });
+
+  levelWrap.innerHTML = html;
+
+  levelWrap.querySelector('.setup-level-toggle')?.addEventListener('click', () => {
+    el.setupProgressBarWrap.dataset.showAll = showAll ? 'false' : 'true';
+    renderSetupProgressBar();
+  });
 }
 
 function updateProgressBar() {

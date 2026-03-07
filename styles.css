@@ -1647,6 +1647,72 @@ body[data-theme="dark"] .setup-progress-bar-wrap {
   min-width: 60px;
 }
 
+/* ── Setup per-level breakdown bars ── */
+
+.setup-level-bars {
+  width: 100%;
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.setup-level-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
+.setup-level-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.setup-level-toggle {
+  font-size: 11px;
+  padding: 3px 10px;
+  border-color: #c5d5f5;
+  background: #f0f5ff;
+  color: var(--primary);
+  font-weight: 600;
+}
+
+body[data-theme="dark"] .setup-level-toggle {
+  border-color: #2e3f70;
+  background: #1a2540;
+  color: #9abaff;
+}
+
+.setup-level-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.setup-level-label {
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  min-width: 120px;
+  text-align: right;
+}
+
+.setup-level-text {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+  min-width: 110px;
+}
+
+.setup-level-row .progress-bar-track {
+  flex: 1;
+  min-width: 60px;
+  height: 10px;
+}
+
 /* ═══════════════════════════════════════════════════════
    TIMER MODE — time inputs row (minutes : seconds)
    ═══════════════════════════════════════════════════════ */
