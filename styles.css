@@ -1959,3 +1959,34 @@ body[data-theme="dark"] .toggle-all-btn {
 body[data-theme="dark"] .toggle-all-btn:hover {
   background: linear-gradient(135deg, #1e2d52 0%, #242a64 100%);
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   TOGGLE-UNANSWERED BUTTON (progress bar)
+══════════════════════════════════════════════════════════════════ */
+
+.toggle-unanswered-btn {
+  display: inline-block;
+  font-size: 12px;
+  padding: 4px 10px;
+  margin-bottom: 8px;
+  border-color: #dde5f5;
+  background: #f7f9ff;
+  color: #5566aa;
+  font-weight: 500;
+  opacity: 0.85;
+}
+
+.toggle-unanswered-btn:hover {
+  opacity: 1;
+  background: #eef2ff;
+}
+
+body[data-theme="dark"] .toggle-unanswered-btn {
+  border-color: #2a3660;
+  background: #161f38;
+  color: #7a96dd;
+}
+
+body[data-theme="dark"] .toggle-unanswered-btn:hover {
+  background: #1c2845;
+}

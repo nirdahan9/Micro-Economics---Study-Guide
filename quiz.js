@@ -28,6 +28,7 @@ const state = {
   },
   streak: 0,
   wrongAnswersThisSession: [],
+  showUnansweredBar: true,
 };
 
 const el = {
@@ -349,6 +350,7 @@ function loadWeakStats() {
 
 function saveWeakStats() {
   localStorage.setItem(getWeakStatsKey(), JSON.stringify(state.weakStats));
+  saveStatsToFirestore();
 }
 
 function loadWrongStats() {
@@ -362,6 +364,7 @@ function loadWrongStats() {
 
 function saveWrongStats() {
   localStorage.setItem(getWrongStatsKey(), JSON.stringify(state.wrongStats));
+  saveStatsToFirestore();
 }
 
 // ── Lecture selection persistence ──────────────────────────────────────────
@@ -441,8 +444,15 @@ function resetStats() {
   if (!confirm('האם לאפס את כל הסטטיסטיקות שלך? כל הנתונים על שאלות חלשות ושגיאות יימחקו.')) return;
   state.weakStats = {};
   state.wrongStats = {};
+  state.lifetimeStats = { answered: 0, correct: 0 };
   saveWeakStats();
   saveWrongStats();
+  saveLifetimeStats();
+  // גם מחיקה מ-Firestore
+  const db = _getFs();
+  const uid = (typeof AUTH !== 'undefined') ? AUTH.currentUser()?.uid : null;
+  if (db && uid) db.collection('userStats').doc(uid).delete().catch(() => {});
+  renderSetupProgressBar();
   buildSelection();
   if (el.selectionSummary) {
     el.selectionSummary.textContent += ' | ✅ הסטטיסטיקות אופסו.';
@@ -502,6 +512,51 @@ function loadLifetimeStats() {
 
 function saveLifetimeStats() {
   localStorage.setItem(getLifetimeStatsKey(), JSON.stringify(state.lifetimeStats));
+  saveStatsToFirestore();
+}
+
+// ══ Firestore sync ══════════════════════════════════════════════════════════
+let _fsDebounceTimer = null;
+
+function _getFs() {
+  try { return (typeof firebase !== 'undefined') ? firebase.firestore() : null; } catch { return null; }
+}
+
+async function loadStatsFromFirestore() {
+  const db = _getFs();
+  const uid = (typeof AUTH !== 'undefined') ? AUTH.currentUser()?.uid : null;
+  if (!db || !uid) return;
+  try {
+    const snap = await db.collection('userStats').doc(uid).get();
+    if (!snap.exists) return;
+    const data = snap.data();
+    if (data.weakStats)    { state.weakStats     = data.weakStats;    localStorage.setItem(getWeakStatsKey(),    JSON.stringify(state.weakStats)); }
+    if (data.wrongStats)   { state.wrongStats    = data.wrongStats;   localStorage.setItem(getWrongStatsKey(),   JSON.stringify(state.wrongStats)); }
+    if (data.lifetimeStats){ state.lifetimeStats = data.lifetimeStats; localStorage.setItem(getLifetimeStatsKey(), JSON.stringify(state.lifetimeStats)); }
+    renderSetupProgressBar();
+    buildSelection();
+  } catch (e) {
+    console.warn('Firestore load failed:', e.message);
+  }
+}
+
+function saveStatsToFirestore() {
+  clearTimeout(_fsDebounceTimer);
+  _fsDebounceTimer = setTimeout(async () => {
+    const db = _getFs();
+    const uid = (typeof AUTH !== 'undefined') ? AUTH.currentUser()?.uid : null;
+    if (!db || !uid) return;
+    try {
+      await db.collection('userStats').doc(uid).set({
+        weakStats:     state.weakStats,
+        wrongStats:    state.wrongStats,
+        lifetimeStats: state.lifetimeStats,
+        updatedAt:     firebase.firestore.FieldValue.serverTimestamp(),
+      }, { merge: true });
+    } catch (e) {
+      console.warn('Firestore save failed:', e.message);
+    }
+  }, 2000);
 }
 
 function getModeLabel(mode) {
@@ -926,18 +981,36 @@ function updateProgressBar() {
   }
   el.progressBarWrap.classList.remove('hidden');
 
+  // Inject toggle-unanswered button once
+  let toggleBtn = el.progressBarWrap.querySelector('.toggle-unanswered-btn');
+  if (!toggleBtn) {
+    toggleBtn = document.createElement('button');
+    toggleBtn.type = 'button';
+    toggleBtn.className = 'btn toggle-unanswered-btn';
+    el.progressBarWrap.insertBefore(toggleBtn, el.progressBarWrap.firstChild);
+    toggleBtn.addEventListener('click', () => {
+      state.showUnansweredBar = !state.showUnansweredBar;
+      updateProgressBar();
+    });
+  }
+  toggleBtn.textContent = state.showUnansweredBar ? '× הסתר שאלות שלא נענו' : '+ הצג שאלות שלא נענו';
+
   const totalQ = state.selectedQuestions.length;
   const answered = state.answeredCount;
 
-  // Bar 1: session progress (answered / total questions)
-  if (el.progressBarFillProgress) {
-    const progPct = totalQ > 0 ? Math.round((answered / totalQ) * 100) : 0;
-    el.progressBarFillProgress.style.width = `${progPct}%`;
-  }
-  if (el.progressBarTextProgress) {
-    el.progressBarTextProgress.textContent = totalQ > 0
-      ? `${answered} מתוך ${totalQ} שאלות`
-      : '';
+  // Bar 1: session progress (תוגלבל)
+  const bar1Row = el.progressBarFillProgress?.closest('.progress-bar-row');
+  if (bar1Row) bar1Row.classList.toggle('hidden', !state.showUnansweredBar);
+  if (state.showUnansweredBar) {
+    if (el.progressBarFillProgress) {
+      const progPct = totalQ > 0 ? Math.round((answered / totalQ) * 100) : 0;
+      el.progressBarFillProgress.style.width = `${progPct}%`;
+    }
+    if (el.progressBarTextProgress) {
+      el.progressBarTextProgress.textContent = totalQ > 0
+        ? `${answered} מתוך ${totalQ} שאלות`
+        : '';
+    }
   }
 
   // Bar 2: accuracy on answered questions
@@ -958,7 +1031,7 @@ function updateProgressBar() {
     }
   }
 
-  // Bars 3–5: per confidence level (only in confidence mode)
+  // Bars 3–5: סרגלי רמת ביטחון — תמיד גלויים במצב confidence
   if (state.mode === 'confidence') {
     const levelMap = [
       { key: 'high',   row: el.confBarRowHigh,   fill: el.confBarFillHigh,   text: el.confBarTextHigh   },
@@ -968,11 +1041,12 @@ function updateProgressBar() {
     levelMap.forEach(({ key, row, fill, text }) => {
       if (!row) return;
       const { total: lTotal, correct: lCorrect } = state.confidenceStats[key];
+      row.classList.remove('hidden');  // תמיד גלוי
       if (lTotal === 0) {
-        row.classList.add('hidden');
+        if (fill) { fill.style.width = '0%'; fill.className = 'progress-bar-fill'; }
+        if (text) text.textContent = 'טרם נענו';
         return;
       }
-      row.classList.remove('hidden');
       const lPct = Math.round((lCorrect / lTotal) * 100);
       if (fill) {
         fill.style.width = `${lPct}%`;
@@ -1210,6 +1284,7 @@ async function init() {
   loadWrongStats();
   loadLifetimeStats();
   renderSetupProgressBar();
+  await loadStatsFromFirestore();  // טוען מהענן ומדריס נתונים מקומיים
 
   try {
     const text = await loadQuestionsText();
