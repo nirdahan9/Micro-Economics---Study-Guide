@@ -1417,6 +1417,22 @@ body[data-theme="dark"] .auth-error {
   background: #3a1f1f;
 }
 
+/* Inline validation error below the setup panel (lecture/timer) */
+.setup-error {
+  color: var(--bad);
+  font-size: 0.92rem;
+  font-weight: 600;
+  margin: 6px 0 2px;
+  padding: 7px 12px;
+  border: 1px solid var(--bad);
+  border-radius: 8px;
+  background: #fff3f3;
+}
+
+body[data-theme="dark"] .setup-error {
+  background: #3a1f1f;
+}
+
 .auth-ok {
   color: var(--ok);
   font-weight: 600;

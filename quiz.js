@@ -52,6 +52,7 @@ const el = {
   startQuiz: document.getElementById('start-quiz'),
   resetSetup: document.getElementById('reset-setup'),
   selectionSummary: document.getElementById('selection-summary'),
+  setupError: document.getElementById('setup-error'),
 
   quizSection: document.getElementById('quiz-section'),
   resultSection: document.getElementById('result-section'),
@@ -746,7 +747,49 @@ function buildSelection() {
     el.selectionSummary.textContent = `ייבחרו ${selected.length} שאלות מתוך ${filtered.length} שאלות תואמות. שיעורים: ${lectureText}`;
   }
 
+  // ACCEPTANCE: live validation – error shown and button disabled the moment settings become invalid
+  updateSetupError();
+
   return selected;
+}
+
+// ── Setup validation ────────────────────────────────────────────────────────
+// Returns a Hebrew error string when settings are invalid, null when valid.
+function validatePracticeSettings() {
+  const selectedLectures = getSelectedLectureIds();
+  if (selectedLectures.length === 0) {
+    return 'בחר לפחות שיעור אחד כדי להתחיל תרגול.';
+  }
+  if (state.mode === 'timer') {
+    const timerType = [...(el.timerTypeInputs || [])].find((r) => r.checked)?.value || 'total';
+    if (timerType === 'total') {
+      const mins = Number(el.timerTotalMinutes?.value || 0);
+      const secs = Number(el.timerTotalSeconds?.value || 0);
+      if (mins * 60 + secs <= 0) return 'הזמן הכולל לתרגול חייב להיות גדול מ-0.';
+    } else {
+      const mins = Number(el.timerPerMinutes?.value || 0);
+      const secs = Number(el.timerPerSeconds?.value || 0);
+      if (mins * 60 + secs <= 0) return 'הזמן לשאלה חייב להיות גדול מ-0.';
+    }
+  }
+  return null;
+}
+
+// Shows/clears the inline error and enables/disables the start button accordingly.
+function updateSetupError() {
+  const msg = validatePracticeSettings();
+  if (el.setupError) {
+    if (msg) {
+      el.setupError.textContent = '⚠️ ' + msg;
+      el.setupError.classList.remove('hidden');
+    } else {
+      el.setupError.textContent = '';
+      el.setupError.classList.add('hidden');
+    }
+  }
+  if (el.startQuiz) {
+    el.startQuiz.disabled = !!msg;
+  }
 }
 
 function renderCurrentQuestion() {
@@ -1244,31 +1287,12 @@ function startQuiz() {
   state.wrongAnswersThisSession = [];
   if (el.streakStatus) el.streakStatus.classList.add('hidden');
 
-  // ACCEPTANCE: clicking start with no lectures selected shows a clear Hebrew error and blocks start
-  const ensureSelection = getSelectedLectureIds();
-  if (ensureSelection.length === 0) {
-    alert('יש לבחור לפחות שיעור אחד לפני תחילת התרגול. לחץ "✓ בחר הכל" כדי לבחור את כל השיעורים.');
+  // Safety-net: updateSetupError is called live, but guard here in case button was clicked anyway.
+  // ACCEPTANCE: no lectures → error shown and start blocked; timer 0:00 → same.
+  const _validationMsg = validatePracticeSettings();
+  if (_validationMsg) {
+    updateSetupError();
     return;
-  }
-
-  // ACCEPTANCE: cannot start practice when timer per-question or total time is 0:00
-  if (state.mode === 'timer') {
-    const _timerTypeCheck = [...(el.timerTypeInputs || [])].find((r) => r.checked)?.value || 'total';
-    if (_timerTypeCheck === 'total') {
-      const _vm = Number(el.timerTotalMinutes?.value || 0);
-      const _vs = Number(el.timerTotalSeconds?.value || 0);
-      if (_vm * 60 + _vs <= 0) {
-        alert('הזמן הכולל לתרגול לא יכול להיות 0:00. יש להגדיר לפחות שנייה אחת.');
-        return;
-      }
-    } else {
-      const _vm = Number(el.timerPerMinutes?.value || 0);
-      const _vs = Number(el.timerPerSeconds?.value || 0);
-      if (_vm * 60 + _vs <= 0) {
-        alert('הזמן לשאלה לא יכול להיות 0:00. יש להגדיר לפחות שנייה אחת לשאלה.');
-        return;
-      }
-    }
   }
 
   const selected = buildSelection();
@@ -1458,7 +1482,7 @@ async function init() {
 
     el.loadStatus.textContent = `מצב נוכחי: ${getModeLabel(state.mode)} | נטענו ${state.allQuestions.length} שאלות מתוך ${state.lectures.length} מצגות.`;
 
-    el.startQuiz.disabled = false;
+    updateSetupError(); // sets disabled only when settings are actually invalid
     el.submitAnswer.disabled = false;
   } catch (err) {
     console.error(err);
@@ -1495,12 +1519,13 @@ async function init() {
   el.livesCount?.addEventListener('input', buildSelection);
   el.questionFilterInputs?.forEach((r) => r.addEventListener('change', buildSelection));
 
-  // Timer type toggle: show/hide matching time-input panel
+  // Timer type toggle: show/hide matching time-input panel + re-run live validation
   el.timerTypeInputs?.forEach((r) =>
     r.addEventListener('change', () => {
       const sel = [...(el.timerTypeInputs || [])].find((i) => i.checked)?.value || 'total';
       document.getElementById('timer-total-settings')?.classList.toggle('hidden', sel !== 'total');
       document.getElementById('timer-per-settings')?.classList.toggle('hidden', sel !== 'per-question');
+      updateSetupError(); // ACCEPTANCE: switching timer type re-validates immediately
     })
   );
 }
