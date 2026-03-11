@@ -90,20 +90,51 @@
         applyTheme(current === 'dark' ? 'light' : 'dark');
       });
 
-      // Animated stat counters
-      document.querySelectorAll('.stat-num[data-target]').forEach(el => {
-        const target = +el.dataset.target;
-        const duration = 900;
-        const start = performance.now();
+    })();
+
+    // ACCEPTANCE: stat counters are always computed from the actual loaded data,
+    // never from stale localStorage/state or hardcoded fallbacks.
+    function runStatCounters() {
+      document.querySelectorAll('.stat-num[data-target]').forEach(function(numEl) {
+        var target = +numEl.dataset.target;
+        var duration = 900;
+        var tStart = performance.now();
         function step(now) {
-          const t = Math.min((now - start) / duration, 1);
-          const ease = 1 - Math.pow(1 - t, 3);
-          el.textContent = Math.round(ease * target);
+          var t = Math.min((now - tStart) / duration, 1);
+          var ease = 1 - Math.pow(1 - t, 3);
+          numEl.textContent = Math.round(ease * target);
           if (t < 1) requestAnimationFrame(step);
         }
         requestAnimationFrame(step);
       });
-    })();
+    }
+
+    function computeStatsOnceLoaded() {
+      // Parse QUESTIONS_TEXT (populated by questions-data.js) to get real counts.
+      // Reset to 0 first so no stale value is ever shown.
+      var text = (typeof window.QUESTIONS_TEXT === 'string') ? window.QUESTIONS_TEXT : '';
+      var questionCount = 0;
+      var lectureIdsSeen = {};
+      if (text) {
+        text.split('\n').forEach(function(rawLine) {
+          var line = rawLine.trim();
+          if (/^Q\d+_\d+:$/.test(line)) { questionCount++; return; }
+          var lid = line.match(/^LECTURE_ID:\s*(.+)$/);
+          if (lid) {
+            var id = lid[1].replace(/^["']|["']$/g, '').trim();
+            if (id) lectureIdsSeen[id] = true;
+          }
+        });
+      }
+      var lectureCount = Object.keys(lectureIdsSeen).length;
+      // Update data-target so runStatCounters animates to the real values.
+      // Element order in .hero-stats: [0]=שאלות  [1]=שיעורים  [2]=מצבי משחק (constant)
+      var statNums = document.querySelectorAll('.stat-num[data-target]');
+      if (questionCount > 0 && statNums[0]) statNums[0].dataset.target = String(questionCount);
+      if (lectureCount  > 0 && statNums[1]) statNums[1].dataset.target = String(lectureCount);
+      // game-modes count (statNums[2]) stays at its hardcoded value.
+      runStatCounters();
+    }
 
     function renderLectureStats() {
       var section = document.getElementById('lecture-stats-section');
@@ -183,6 +214,7 @@
   </script>
   <script src="questions-data.js"></script>
   <script>
+    computeStatsOnceLoaded(); // Bug 1 fix: derive counts from actual loaded data, not fallback/stale values
     renderLectureStats();
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
   </script>

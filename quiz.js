@@ -1007,7 +1007,8 @@ function showResults(reason = '') {
 
   renderConfidenceChart();
   renderWrongAnswersList();
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  // ACCEPTANCE: after practice ends the user is scrolled directly to the summary/result section
+  el.resultSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function renderSetupProgressBar() {
@@ -1243,6 +1244,33 @@ function startQuiz() {
   state.wrongAnswersThisSession = [];
   if (el.streakStatus) el.streakStatus.classList.add('hidden');
 
+  // ACCEPTANCE: clicking start with no lectures selected shows a clear Hebrew error and blocks start
+  const ensureSelection = getSelectedLectureIds();
+  if (ensureSelection.length === 0) {
+    alert('יש לבחור לפחות שיעור אחד לפני תחילת התרגול. לחץ "✓ בחר הכל" כדי לבחור את כל השיעורים.');
+    return;
+  }
+
+  // ACCEPTANCE: cannot start practice when timer per-question or total time is 0:00
+  if (state.mode === 'timer') {
+    const _timerTypeCheck = [...(el.timerTypeInputs || [])].find((r) => r.checked)?.value || 'total';
+    if (_timerTypeCheck === 'total') {
+      const _vm = Number(el.timerTotalMinutes?.value || 0);
+      const _vs = Number(el.timerTotalSeconds?.value || 0);
+      if (_vm * 60 + _vs <= 0) {
+        alert('הזמן הכולל לתרגול לא יכול להיות 0:00. יש להגדיר לפחות שנייה אחת.');
+        return;
+      }
+    } else {
+      const _vm = Number(el.timerPerMinutes?.value || 0);
+      const _vs = Number(el.timerPerSeconds?.value || 0);
+      if (_vm * 60 + _vs <= 0) {
+        alert('הזמן לשאלה לא יכול להיות 0:00. יש להגדיר לפחות שנייה אחת לשאלה.');
+        return;
+      }
+    }
+  }
+
   const selected = buildSelection();
   const questionFilter = [...(el.questionFilterInputs || [])].find((r) => r.checked)?.value || 'all';
 
@@ -1274,6 +1302,8 @@ function startQuiz() {
 
   el.resultSection.classList.add('hidden');
   el.quizSection.classList.remove('hidden');
+  // ACCEPTANCE: after clicking "start", user is scrolled directly to the practice area
+  el.quizSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   if (state.mode === 'timer') {
     const timerTypeVal = [...(el.timerTypeInputs || [])].find((r) => r.checked)?.value || 'total';

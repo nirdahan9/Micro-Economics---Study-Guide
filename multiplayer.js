@@ -1218,6 +1218,8 @@ function mpInit() {
   const panelJoin   = document.getElementById('mp-panel-join');
 
   function mpSwitchTab(tab) {
+    // ACCEPTANCE: switching tabs always clears any previous error messages
+    mpClearError();
     const isCreate = (tab === 'create');
     tabCreate?.classList.toggle('active', isCreate);
     tabJoin?.classList.toggle('active', !isCreate);
